@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Doom in HTML and JS</title>
+  <title>Doom-like Raycasting</title>
   <style>
     #gameCanvas {
       border: 1px solid black;
@@ -17,43 +17,83 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    const map = [
+      [1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1]
+    ];
+
     const player = {
-      x: 50,
-      y: 50,
-      speed: 5,
-      size: 10,
+      x: 3.5,
+      y: 3.5,
+      direction: Math.PI / 4,
+      fov: Math.PI / 2,
+      speed: 0.1
     };
 
-    function drawPlayer() {
-      ctx.fillStyle = '#00FF00';
-      ctx.fillRect(player.x, player.y, player.size, player.size);
+    function castRay(angle) {
+      let x = player.x;
+      let y = player.y;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      let distance = 0;
+
+      while (distance < 10) {
+        x += dx * 0.1;
+        y += dy * 0.1;
+        distance += 0.1;
+
+        const mapX = Math.floor(x);
+        const mapY = Math.floor(y);
+
+        if (map[mapY][mapX] === 1) {
+          return distance * Math.cos(player.direction - angle);
+        }
+      }
+
+      return 10;
     }
 
-    function clearCanvas() {
+    function drawScene() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < canvas.width; i++) {
+        const angle = player.direction - player.fov / 2 + (i / canvas.width) * player.fov;
+        const distance = castRay(angle);
+
+        const lineHeight = (canvas.height / distance) * 50;
+        const lineStart = (canvas.height - lineHeight) / 2;
+        const lineEnd = (canvas.height + lineHeight) / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(i, lineStart);
+        ctx.lineTo(i, lineEnd);
+        ctx.strokeStyle = "#FFF";
+        ctx.stroke();
+      }
     }
 
     function update() {
-      clearCanvas();
-      drawPlayer();
-    }
-
-    function movePlayer(directionX, directionY) {
-      player.x += directionX * player.speed;
-      player.y += directionY * player.speed;
-      update();
+      drawScene();
     }
 
     function keyDownHandler(event) {
-      if (event.key === 'ArrowUp') {
-        movePlayer(0, -1);
-      } else if (event.key === 'ArrowDown') {
-        movePlayer(0, 1);
-      } else if (event.key === 'ArrowLeft') {
-        movePlayer(-1, 0);
+      if (event.key === 'ArrowLeft') {
+        player.direction -= 0.1;
       } else if (event.key === 'ArrowRight') {
-        movePlayer(1, 0);
+        player.direction += 0.1;
+      } else if (event.key === 'ArrowUp') {
+        player.x += Math.cos(player.direction) * player.speed;
+        player.y += Math.sin(player.direction) * player.speed;
+      } else if (event.key === 'ArrowDown') {
+        player.x -= Math.cos(player.direction) * player.speed;
+        player.y -= Math.sin(player.direction) * player.speed;
       }
+      update();
     }
 
     document.addEventListener('keydown', keyDownHandler);
