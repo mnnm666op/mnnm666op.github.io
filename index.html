@@ -1,7 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
         .button {
             display: inline-block;
             padding: 10px 20px;
@@ -14,34 +21,15 @@
             border: none;
             border-radius: 5px;
         }
-
         .button:hover {
             background-color: #3367D6;
         }
     </style>
+    <title>Google Drive Access</title>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 50px;">
-        <h1>Access Your Google Drive</h1>
-        <p>Click the button below to access your Google Drive.</p>
-        <button class="button" onclick="connectGoogleDrive()">Connect Google Drive</button>
-    </div>
-
-    <script>
-        function connectGoogleDrive() {
-            // Redirect to Google's OAuth 2.0 server
-            window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive.readonly&access_type=online&include_granted_scopes=true&response_type=token&client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI';
-        }
-
-        // After OAuth, you can retrieve the access token and redirect to Google Drive
-        window.onload = function() {
-            const params = new URLSearchParams(window.location.hash.substring(1));
-            const accessToken = params.get('access_token');
-            if (accessToken) {
-                // Redirect to Google Drive's web interface
-                window.location.href = 'https://drive.google.com';
-            }
-        };
-    </script>
+    <h1>Access Your Google Drive</h1>
+    <p>Click the button below to open Google Drive.</p>
+    <a class="button" href="https://drive.google.com/" target="_blank">Open Google Drive</a>
 </body>
 </html>
