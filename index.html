@@ -3,14 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Sharing Platform</title>
+    <title>Video Sharing Platform with Channels</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>My Video Platform</h1>
+    <h1>Video Sharing Platform</h1>
 
-    <!-- Video container where video links will be appended -->
-    <div id="video-list"></div>
+    <!-- Section to create a channel -->
+    <section>
+        <h2>Create Channel</h2>
+        <input type="text" id="channel-name" placeholder="Enter Channel Name">
+        <button onclick="createChannel()">Create Channel</button>
+    </section>
+
+    <!-- Section to post a new video -->
+    <section>
+        <h2>Post New Video</h2>
+        <select id="channel-select">
+            <!-- Channels will be loaded dynamically -->
+        </select>
+        <input type="text" id="video-title" placeholder="Video Title">
+        <input type="text" id="video-url" placeholder="Video URL (e.g., YouTube Embed URL)">
+        <input type="text" id="video-thumbnail" placeholder="Thumbnail URL">
+        <textarea id="video-description" placeholder="Video Description"></textarea>
+        <button onclick="postVideo()">Post Video</button>
+    </section>
+
+    <!-- Section to view all channels -->
+    <section>
+        <h2>All Channels</h2>
+        <ul id="channel-list">
+            <!-- Channels will be dynamically loaded here -->
+        </ul>
+    </section>
+
+    <!-- Section to view all videos -->
+    <section>
+        <h2>All Videos</h2>
+        <div id="video-list"></div>
+    </section>
 
     <script src="main.js"></script>
 </body>
