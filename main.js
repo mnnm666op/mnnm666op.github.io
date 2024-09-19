@@ -1,83 +1,156 @@
-// Array of video data with unique IDs, title, description, and video URLs
-const videos = [
-    {
-        id: 'video1',
-        title: 'First Video',
-        description: 'This is the first video description.',
-        videoUrl: 'https://www.youtube.com/embed/VIDEO_ID_1',
-        thumbnail: 'https://img.youtube.com/vi/VIDEO_ID_1/0.jpg'
-    },
-    {
-        id: 'video2',
-        title: 'Second Video',
-        description: 'This is the second video description.',
-        videoUrl: 'https://www.youtube.com/embed/VIDEO_ID_2',
-        thumbnail: 'https://img.youtube.com/vi/VIDEO_ID_2/0.jpg'
+// Use LocalStorage to store video and channel data
+const storedChannels = JSON.parse(localStorage.getItem('channels')) || [];
+const storedVideos = JSON.parse(localStorage.getItem('videos')) || [];
+
+// Function to load channels into the select box and channel list
+function loadChannels() {
+    const channelSelect = document.getElementById('channel-select');
+    const channelList = document.getElementById('channel-list');
+    channelSelect.innerHTML = '';
+    channelList.innerHTML = '';
+
+    storedChannels.forEach(channel => {
+        // Add to the select dropdown
+        const option = document.createElement('option');
+        option.value = channel.name;
+        option.textContent = channel.name;
+        channelSelect.appendChild(option);
+
+        // Add to the list of channels
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `<strong>${channel.name}</strong> (Videos: ${channel.videos.length})`;
+        listItem.onclick = () => viewChannel(channel.name);
+        channelList.appendChild(listItem);
+    });
+}
+
+// Function to create a new channel
+function createChannel() {
+    const channelName = document.getElementById('channel-name').value.trim();
+    if (!channelName) {
+        alert('Please enter a channel name.');
+        return;
     }
-];
 
-// Function to load video list on the main page
-function loadVideoList() {
+    const newChannel = {
+        name: channelName,
+        videos: []
+    };
+
+    // Add the new channel to the storedChannels array
+    storedChannels.push(newChannel);
+    localStorage.setItem('channels', JSON.stringify(storedChannels));
+
+    // Clear the input and reload the channels
+    document.getElementById('channel-name').value = '';
+    loadChannels();
+}
+
+// Function to post a new video to a selected channel
+function postVideo() {
+    const channelName = document.getElementById('channel-select').value;
+    const videoTitle = document.getElementById('video-title').value.trim();
+    const videoUrl = document.getElementById('video-url').value.trim();
+    const videoThumbnail = document.getElementById('video-thumbnail').value.trim();
+    const videoDescription = document.getElementById('video-description').value.trim();
+
+    if (!videoTitle || !videoUrl || !videoThumbnail || !videoDescription) {
+        alert('Please fill out all video details.');
+        return;
+    }
+
+    const newVideo = {
+        id: `video-${Date.now()}`,  // Unique ID
+        title: videoTitle,
+        url: videoUrl,
+        thumbnail: videoThumbnail,
+        description: videoDescription,
+        channel: channelName
+    };
+
+    // Find the channel in storedChannels and add the video
+    const channel = storedChannels.find(ch => ch.name === channelName);
+    channel.videos.push(newVideo);
+
+    // Save the updated data in LocalStorage
+    storedVideos.push(newVideo);
+    localStorage.setItem('videos', JSON.stringify(storedVideos));
+    localStorage.setItem('channels', JSON.stringify(storedChannels));
+
+    // Clear input fields and reload the video list
+    document.getElementById('video-title').value = '';
+    document.getElementById('video-url').value = '';
+    document.getElementById('video-thumbnail').value = '';
+    document.getElementById('video-description').value = '';
+    loadVideos();
+}
+
+// Function to load videos on the main page
+function loadVideos() {
     const videoList = document.getElementById('video-list');
+    videoList.innerHTML = '';
 
-    videos.forEach(video => {
+    storedVideos.forEach(video => {
         // Create video item container
         const videoItem = document.createElement('div');
         videoItem.classList.add('video-item');
 
-        // Create video thumbnail
+        // Video thumbnail
         const thumbnail = document.createElement('img');
         thumbnail.src = video.thumbnail;
         thumbnail.alt = video.title;
 
-        // Create video title link
-        const videoLink = document.createElement('a');
-        videoLink.href = `${video.id}.html`; // Link to dynamically generated page
-        videoLink.innerHTML = `<h3>${video.title}</h3>`;
+        // Video title
+        const title = document.createElement('h3');
+        title.textContent = video.title;
 
-        // Append thumbnail and title to video item
+        // Append video details
         videoItem.appendChild(thumbnail);
-        videoItem.appendChild(videoLink);
+        videoItem.appendChild(title);
+        videoItem.innerHTML += `<p>${video.description}</p>`;
 
-        // Append video item to the main list
+        // Append to the video list
         videoList.appendChild(videoItem);
-
-        // Create video page dynamically if it doesn't exist
-        generateVideoPage(video);
     });
 }
 
-// Function to generate video pages dynamically
-function generateVideoPage(video) {
-    // Create a new HTML file content
-    const videoPageContent = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${video.title}</title>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <h1>${video.title}</h1>
-        <iframe width="560" height="315" src="${video.videoUrl}" frameborder="0" allowfullscreen></iframe>
-        <p>${video.description}</p>
-        <a href="index.html">Back to Home</a>
-    </body>
-    </html>`;
+// Function to view videos in a specific channel
+function viewChannel(channelName) {
+    const videoList = document.getElementById('video-list');
+    videoList.innerHTML = '';
 
-    // Create a Blob (in-memory file)
-    const videoBlob = new Blob([videoPageContent], { type: 'text/html' });
+    const channel = storedChannels.find(ch => ch.name === channelName);
 
-    // Create a download link for the new page
-    const downloadLink = document.createElement('a');
-    downloadLink.href = URL.createObjectURL(videoBlob);
-    downloadLink.download = `${video.id}.html`; // The file will be named according to the video ID
+    if (channel && channel.videos.length > 0) {
+        channel.videos.forEach(video => {
+            // Create video item container
+            const videoItem = document.createElement('div');
+            videoItem.classList.add('video-item');
 
-    // Automatically download the new HTML file
-    downloadLink.click();
+            // Video thumbnail
+            const thumbnail = document.createElement('img');
+            thumbnail.src = video.thumbnail;
+            thumbnail.alt = video.title;
+
+            // Video title
+            const title = document.createElement('h3');
+            title.textContent = video.title;
+
+            // Append video details
+            videoItem.appendChild(thumbnail);
+            videoItem.appendChild(title);
+            videoItem.innerHTML += `<p>${video.description}</p>`;
+
+            // Append to the video list
+            videoList.appendChild(videoItem);
+        });
+    } else {
+        videoList.innerHTML = `<p>No videos in this channel.</p>`;
+    }
 }
 
-// Initialize the video list on page load
-window.onload = loadVideoList;
+// Initialize the page
+window.onload = () => {
+    loadChannels();
+    loadVideos();
+};
