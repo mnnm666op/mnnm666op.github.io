@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GitHub Media Player</title>
+<title>GitHub Media Player with Metadata Artist</title>
 <style>
+  /* (same styling as before) */
   body {
     font-family: Arial, sans-serif;
     margin: 20px;
@@ -53,19 +54,20 @@
 </style>
 </head>
 <body>
-<h1>GitHub Media Player</h1>
+<h1>GitHub Media Player with Metadata Artist</h1>
 <div id="player-container">
   <input type="file" id="file-input" multiple accept="audio/*,video/*" />
   <br />
   <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
   <button id="sortByArtistBtn">Sort by Artist</button>
   <br />
-  <!-- Audio/Video players (we will switch between them dynamically) -->
+  <!-- Audio/Video players -->
   <audio id="audio-player" controls></audio>
   <video id="video-player" controls style="display:none;"></video>
   <ul id="playlist"></ul>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script>
   const audioPlayer = document.getElementById('audio-player');
   const videoPlayer = document.getElementById('video-player');
@@ -77,14 +79,59 @@
   let mediaFiles = []; // {name, url, type, blob, artist}
   let currentIndex = -1;
 
-  function parseArtist(filename) {
-    // Try to parse artist from filename in format "Artist - Title.ext"
-    const baseName = filename.replace(/\.[^/.]+$/, ""); // remove extension
+  // Parse artist from filename fallback
+  function parseArtistFallback(filename) {
+    const baseName = filename.replace(/\.[^/.]+$/, "");
     const parts = baseName.split(' - ');
     if (parts.length > 1) {
       return parts[0].trim();
     }
-    return ''; // no artist found
+    return '';
+  }
+
+  // Read artist metadata from blob or url using jsmediatags
+  function readArtistMetadata(fileOrUrl) {
+    return new Promise((resolve) => {
+      // jsmediatags requires a File/Blob or URL accessible with CORS
+      try {
+        window.jsmediatags.read(fileOrUrl, {
+          onSuccess: function(tag) {
+            let artist = '';
+            if (tag.tags.artist) {
+              artist = tag.tags.artist.trim();
+            }
+            resolve(artist);
+          },
+          onError: function(error) {
+            // fallback on error
+            resolve('');
+          }
+        });
+      } catch(e) {
+        resolve('');
+      }
+    });
+  }
+
+  async function createMediaFileObject(file) {
+    let artist = '';
+    if (file instanceof File || file instanceof Blob) {
+      artist = await readArtistMetadata(file);
+    } else {
+      // For URLs from GitHub, no easy way to get metadata due to CORS
+      // So just fallback to filename parsing
+      artist = parseArtistFallback(file.name || file);
+    }
+    if (!artist) {
+      artist = parseArtistFallback(file.name || file);
+    }
+    return {
+      name: file.name || file,
+      url: file.url || file,
+      type: (file.type && file.type.startsWith('video')) || /\.(mp4|webm)$/i.test(file.name || file) ? 'video' : 'audio',
+      blob: file instanceof File || file instanceof Blob ? file : null,
+      artist,
+    };
   }
 
   function updatePlaylist() {
@@ -102,7 +149,6 @@
     if (index < 0 || index >= mediaFiles.length) return;
     currentIndex = index;
     const file = mediaFiles[index];
-    // Show correct player & set source
     if (file.type === 'video') {
       audioPlayer.style.display = 'none';
       videoPlayer.style.display = 'block';
@@ -121,7 +167,6 @@
     updatePlaylist();
   }
 
-  // Play next track when current ends
   audioPlayer.addEventListener('ended', () => {
     if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
   });
@@ -129,26 +174,22 @@
     if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
   });
 
-  // Handle file input from user device
-  fileInput.addEventListener('change', (event) => {
+  fileInput.addEventListener('change', async (event) => {
     const files = event.target.files;
     if (!files.length) return;
-    mediaFiles = Array.from(files).map(f => {
-      const type = f.type.startsWith('video') ? 'video' : 'audio';
-      return {
-        name: f.name,
-        url: URL.createObjectURL(f),
-        type,
-        blob: f,
-        artist: parseArtist(f.name),
-      };
-    });
+
+    // Read metadata for each file asynchronously
+    mediaFiles = [];
+    for (const f of files) {
+      const mediaObj = await createMediaFileObject(f);
+      mediaObj.url = URL.createObjectURL(f);
+      mediaFiles.push(mediaObj);
+    }
     currentIndex = -1;
     updatePlaylist();
     playMedia(0);
   });
 
-  // Load media files from GitHub repo folder "media"
   async function loadMediaFromGitHub() {
     const owner = 'mnnm666op';
     const repo = 'mnnm666op.github.io';
@@ -159,18 +200,20 @@
       if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
       const files = await res.json();
       const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
-      mediaFiles = files
-        .filter(f => f.type === 'file' && validExts.test(f.name))
-        .map(f => {
-          const isVideo = /\.(mp4|webm)$/i.test(f.name);
-          return {
+      mediaFiles = [];
+      for (const f of files) {
+        if (f.type === 'file' && validExts.test(f.name)) {
+          // We cannot read metadata for remote URLs easily due to CORS
+          // So fallback to filename parsing only
+          mediaFiles.push({
             name: f.name,
             url: f.download_url,
-            type: isVideo ? 'video' : 'audio',
+            type: /\.(mp4|webm)$/i.test(f.name) ? 'video' : 'audio',
             blob: null,
-            artist: parseArtist(f.name),
-          };
-        });
+            artist: parseArtistFallback(f.name),
+          });
+        }
+      }
       if (mediaFiles.length === 0) {
         alert("No media files found in the GitHub repo folder.");
         return;
@@ -184,7 +227,6 @@
   }
   loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
 
-  // Sort by artist button
   sortByArtistBtn.addEventListener('click', () => {
     mediaFiles.sort((a, b) => {
       const artistA = a.artist.toLowerCase() || a.name.toLowerCase();
