@@ -5,30 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>GitHub Media Player</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
-  h1 { text-align: center; }
-  #player-container { background: white; padding: 20px; border-radius: 8px; max-width: 600px; margin: auto; }
-  audio, video { width: 100%; margin-bottom: 10px; }
-  button { margin: 5px 0; padding: 8px 15px; cursor: pointer; }
-  #playlist { margin-top: 15px; list-style: none; padding-left: 0; max-height: 200px; overflow-y: auto; }
-  #playlist li { padding: 8px; background: #eee; margin-bottom: 4px; border-radius: 4px; cursor: pointer; }
-  #playlist li.playing { background: #cce5ff; font-weight: bold; }
-  #file-input { margin-bottom: 10px; }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f0f0f0;
+  }
+  h1 {
+    text-align: center;
+  }
+  #player-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 600px;
+    margin: auto;
+  }
+  audio, video {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  button {
+    margin: 5px 5px 5px 0;
+    padding: 8px 15px;
+    cursor: pointer;
+  }
+  #playlist {
+    margin-top: 15px;
+    list-style: none;
+    padding-left: 0;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  #playlist li {
+    padding: 8px;
+    background: #eee;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #playlist li.playing {
+    background: #cce5ff;
+    font-weight: bold;
+  }
+  #file-input {
+    margin-bottom: 10px;
+  }
 </style>
 </head>
 <body>
-
 <h1>GitHub Media Player</h1>
-
 <div id="player-container">
   <input type="file" id="file-input" multiple accept="audio/*,video/*" />
   <br />
   <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
+  <button id="sortByArtistBtn">Sort by Artist</button>
   <br />
   <!-- Audio/Video players (we will switch between them dynamically) -->
   <audio id="audio-player" controls></audio>
   <video id="video-player" controls style="display:none;"></video>
-
   <ul id="playlist"></ul>
 </div>
 
@@ -38,15 +72,26 @@
   const playlistEl = document.getElementById('playlist');
   const fileInput = document.getElementById('file-input');
   const loadFromGitHubBtn = document.getElementById('loadFromGitHubBtn');
+  const sortByArtistBtn = document.getElementById('sortByArtistBtn');
 
-  let mediaFiles = []; // {name, url, type, blob}
+  let mediaFiles = []; // {name, url, type, blob, artist}
   let currentIndex = -1;
+
+  function parseArtist(filename) {
+    // Try to parse artist from filename in format "Artist - Title.ext"
+    const baseName = filename.replace(/\.[^/.]+$/, ""); // remove extension
+    const parts = baseName.split(' - ');
+    if (parts.length > 1) {
+      return parts[0].trim();
+    }
+    return ''; // no artist found
+  }
 
   function updatePlaylist() {
     playlistEl.innerHTML = '';
     mediaFiles.forEach((file, idx) => {
       const li = document.createElement('li');
-      li.textContent = file.name;
+      li.textContent = file.name + (file.artist ? ` (Artist: ${file.artist})` : '');
       if (idx === currentIndex) li.classList.add('playing');
       li.addEventListener('click', () => playMedia(idx));
       playlistEl.appendChild(li);
@@ -55,10 +100,8 @@
 
   function playMedia(index) {
     if (index < 0 || index >= mediaFiles.length) return;
-
     currentIndex = index;
     const file = mediaFiles[index];
-
     // Show correct player & set source
     if (file.type === 'video') {
       audioPlayer.style.display = 'none';
@@ -90,18 +133,16 @@
   fileInput.addEventListener('change', (event) => {
     const files = event.target.files;
     if (!files.length) return;
-
-    // Convert FileList to array & map to our format
     mediaFiles = Array.from(files).map(f => {
       const type = f.type.startsWith('video') ? 'video' : 'audio';
       return {
         name: f.name,
         url: URL.createObjectURL(f),
         type,
-        blob: f
+        blob: f,
+        artist: parseArtist(f.name),
       };
     });
-
     currentIndex = -1;
     updatePlaylist();
     playMedia(0);
@@ -113,12 +154,10 @@
     const repo = 'mnnm666op.github.io';
     const path = 'media';
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
       const files = await res.json();
-
       const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
       mediaFiles = files
         .filter(f => f.type === 'file' && validExts.test(f.name))
@@ -128,15 +167,14 @@
             name: f.name,
             url: f.download_url,
             type: isVideo ? 'video' : 'audio',
-            blob: null
+            blob: null,
+            artist: parseArtist(f.name),
           };
         });
-
       if (mediaFiles.length === 0) {
         alert("No media files found in the GitHub repo folder.");
         return;
       }
-
       currentIndex = -1;
       updatePlaylist();
       playMedia(0);
@@ -144,10 +182,19 @@
       alert(`Failed to load media from GitHub: ${err.message}`);
     }
   }
-
   loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
 
+  // Sort by artist button
+  sortByArtistBtn.addEventListener('click', () => {
+    mediaFiles.sort((a, b) => {
+      const artistA = a.artist.toLowerCase() || a.name.toLowerCase();
+      const artistB = b.artist.toLowerCase() || b.name.toLowerCase();
+      return artistA.localeCompare(artistB);
+    });
+    currentIndex = -1;
+    updatePlaylist();
+    if (mediaFiles.length > 0) playMedia(0);
+  });
 </script>
-
 </body>
 </html>
