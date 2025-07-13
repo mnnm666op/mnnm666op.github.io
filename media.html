@@ -2,120 +2,152 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Media Folder Player</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GitHub Media Player</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #121212;
-    color: #eee;
-    max-width: 700px;
-    margin: 2rem auto;
-    padding: 1rem;
-  }
-  h1 {
-    text-align: center;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  li {
-    padding: 0.5rem;
-    border-bottom: 1px solid #444;
-    cursor: pointer;
-  }
-  li:hover {
-    background: #333;
-  }
-  audio, video {
-    width: 100%;
-    margin-top: 1rem;
-    background: #000;
-  }
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+  h1 { text-align: center; }
+  #player-container { background: white; padding: 20px; border-radius: 8px; max-width: 600px; margin: auto; }
+  audio, video { width: 100%; margin-bottom: 10px; }
+  button { margin: 5px 0; padding: 8px 15px; cursor: pointer; }
+  #playlist { margin-top: 15px; list-style: none; padding-left: 0; max-height: 200px; overflow-y: auto; }
+  #playlist li { padding: 8px; background: #eee; margin-bottom: 4px; border-radius: 4px; cursor: pointer; }
+  #playlist li.playing { background: #cce5ff; font-weight: bold; }
+  #file-input { margin-bottom: 10px; }
 </style>
 </head>
 <body>
-  <h1>Media Folder Player</h1>
-  <p>Select a media file from the list below:</p>
-  <ul id="fileList"></ul>
 
-  <audio id="audioPlayer" controls style="display:none;"></audio>
-  <video id="videoPlayer" controls style="display:none;"></video>
+<h1>GitHub Media Player</h1>
+
+<div id="player-container">
+  <input type="file" id="file-input" multiple accept="audio/*,video/*" />
+  <br />
+  <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
+  <br />
+  <!-- Audio/Video players (we will switch between them dynamically) -->
+  <audio id="audio-player" controls></audio>
+  <video id="video-player" controls style="display:none;"></video>
+
+  <ul id="playlist"></ul>
+</div>
 
 <script>
-  const fileList = document.getElementById('fileList');
-  const audioPlayer = document.getElementById('audioPlayer');
-  const videoPlayer = document.getElementById('videoPlayer');
+  const audioPlayer = document.getElementById('audio-player');
+  const videoPlayer = document.getElementById('video-player');
+  const playlistEl = document.getElementById('playlist');
+  const fileInput = document.getElementById('file-input');
+  const loadFromGitHubBtn = document.getElementById('loadFromGitHubBtn');
 
-  // Adjust this path if needed
-  const mediaPath = '/media/';
+  let mediaFiles = []; // {name, url, type, blob}
+  let currentIndex = -1;
 
-  function isVideoFile(filename) {
-    return /\.(mp4|webm|mkv|mov)$/i.test(filename);
+  function updatePlaylist() {
+    playlistEl.innerHTML = '';
+    mediaFiles.forEach((file, idx) => {
+      const li = document.createElement('li');
+      li.textContent = file.name;
+      if (idx === currentIndex) li.classList.add('playing');
+      li.addEventListener('click', () => playMedia(idx));
+      playlistEl.appendChild(li);
+    });
   }
 
-  function isAudioFile(filename) {
-    return /\.(mp3|flac|wav|ogg|m4a)$/i.test(filename);
-  }
+  function playMedia(index) {
+    if (index < 0 || index >= mediaFiles.length) return;
 
-  function clearPlayers() {
-    audioPlayer.style.display = 'none';
-    audioPlayer.pause();
-    audioPlayer.src = '';
+    currentIndex = index;
+    const file = mediaFiles[index];
 
-    videoPlayer.style.display = 'none';
-    videoPlayer.pause();
-    videoPlayer.src = '';
-  }
-
-  function playFile(filename) {
-    clearPlayers();
-    const url = mediaPath + filename;
-    if (isVideoFile(filename)) {
+    // Show correct player & set source
+    if (file.type === 'video') {
+      audioPlayer.style.display = 'none';
       videoPlayer.style.display = 'block';
-      videoPlayer.src = url;
+      videoPlayer.src = file.url;
       videoPlayer.play();
-    } else if (isAudioFile(filename)) {
-      audioPlayer.style.display = 'block';
-      audioPlayer.src = url;
-      audioPlayer.play();
+      audioPlayer.pause();
+      audioPlayer.src = '';
     } else {
-      alert('Unsupported file type.');
+      videoPlayer.style.display = 'none';
+      audioPlayer.style.display = 'block';
+      audioPlayer.src = file.url;
+      audioPlayer.play();
+      videoPlayer.pause();
+      videoPlayer.src = '';
     }
+    updatePlaylist();
   }
 
-  // Fetch directory listing (assumes server returns HTML index)
-  fetch(mediaPath)
-    .then(res => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    })
-    .then(html => {
-      // Parse HTML to find links to files
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const links = Array.from(doc.querySelectorAll('a'));
-      // Filter hrefs that look like files (not directories)
-      const files = links
-        .map(a => a.getAttribute('href'))
-        .filter(href => href && !href.endsWith('/') && (isAudioFile(href) || isVideoFile(href)));
+  // Play next track when current ends
+  audioPlayer.addEventListener('ended', () => {
+    if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
+  });
+  videoPlayer.addEventListener('ended', () => {
+    if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
+  });
 
-      if (files.length === 0) {
-        fileList.innerHTML = '<li>No media files found in /media/</li>';
+  // Handle file input from user device
+  fileInput.addEventListener('change', (event) => {
+    const files = event.target.files;
+    if (!files.length) return;
+
+    // Convert FileList to array & map to our format
+    mediaFiles = Array.from(files).map(f => {
+      const type = f.type.startsWith('video') ? 'video' : 'audio';
+      return {
+        name: f.name,
+        url: URL.createObjectURL(f),
+        type,
+        blob: f
+      };
+    });
+
+    currentIndex = -1;
+    updatePlaylist();
+    playMedia(0);
+  });
+
+  // Load media files from GitHub repo folder "media"
+  async function loadMediaFromGitHub() {
+    const owner = 'mnnm666op';
+    const repo = 'mnnm666op.github.io';
+    const path = 'media';
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
+      const files = await res.json();
+
+      const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
+      mediaFiles = files
+        .filter(f => f.type === 'file' && validExts.test(f.name))
+        .map(f => {
+          const isVideo = /\.(mp4|webm)$/i.test(f.name);
+          return {
+            name: f.name,
+            url: f.download_url,
+            type: isVideo ? 'video' : 'audio',
+            blob: null
+          };
+        });
+
+      if (mediaFiles.length === 0) {
+        alert("No media files found in the GitHub repo folder.");
         return;
       }
 
-      files.forEach(file => {
-        const li = document.createElement('li');
-        li.textContent = file;
-        li.onclick = () => playFile(file);
-        fileList.appendChild(li);
-      });
-    })
-    .catch(err => {
-      fileList.innerHTML = `<li style="color:red;">Failed to load media directory: ${err.message}</li>`;
-    });
+      currentIndex = -1;
+      updatePlaylist();
+      playMedia(0);
+    } catch (err) {
+      alert(`Failed to load media from GitHub: ${err.message}`);
+    }
+  }
+
+  loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
+
 </script>
+
 </body>
 </html>
