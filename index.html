@@ -1,220 +1,370 @@
-<script>
-  // Helper functions for cookies
-  function setCookie(name, value, days = 7) {
-    const expires = new Date(Date.now() + days * 864e5).toUTCString();
-    document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
-  }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Media Player with ZIP, SoundCloud & YouTube</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      width: 100%;
+      max-width: 720px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    h1 {
+      margin: 0 0 1rem 0;
+      font-weight: 600;
+      font-size: 1.8rem;
+      text-align: center;
+      color: #fafafa;
+    }
+    input[type="file"], input[type="url"] {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background-color: #2a2a2a;
+      color: #ddd;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    video, audio, iframe {
+      width: 100%;
+      border-radius: 10px;
+      background-color: black;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    button {
+      background-color: #3a3a3a;
+      border: none;
+      border-radius: 8px;
+      color: #ccc;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+      transition: background-color 0.25s, color 0.25s;
+      user-select: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    button:hover:not(:disabled) {
+      background-color: #5c7ef8;
+      color: #fff;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .playlist {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 280px;
+      overflow-y: auto;
+      background-color: #232323;
+      border-radius: 8px;
+    }
+    .playlist li {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      color: #bbb;
+    }
+    .playlist li:hover {
+      background-color: #3d3d3d;
+      color: #fff;
+    }
+    .playlist li.active {
+      background-color: #5c7ef8;
+      color: white;
+      font-weight: 700;
+    }
+    .now-playing {
+      text-align: center;
+      color: #7a8ec8;
+      min-height: 1.5rem;
+    }
+    .embed-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .embed-player {
+      margin-top: 0.75rem;
+      height: 166px;
+    }
+    .youtube-embed {
+      height: 360px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Media Player with ZIP, SoundCloud & YouTube</h1>
 
-  function getCookie(name) {
-    return document.cookie.split('; ').reduce((r, v) => {
-      const parts = v.split('=');
-      return parts[0] === name ? decodeURIComponent(parts[1]) : r;
-    }, '');
-  }
+    <label for="zipInput">Upload ZIP with media files</label>
+    <input type="file" id="zipInput" accept=".zip" />
 
-  // ZIP Playlist Player Code
-  const zipInput = document.getElementById('zipInput');
-  const playlistEl = document.getElementById('playlist');
-  const videoPlayer = document.getElementById('videoPlayer');
-  const audioPlayer = document.getElementById('audioPlayer');
-  const nowPlaying = document.getElementById('nowPlaying');
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  let mediaFiles = [];
-  let currentIndex = -1;
+    <div class="now-playing" id="nowPlaying">No track loaded</div>
+    <video id="videoPlayer" controls style="display:none;"></video>
+    <audio id="audioPlayer" controls style="display:none;"></audio>
 
-  zipInput.addEventListener('change', async () => {
-    const file = zipInput.files[0];
-    if (!file) return;
-    resetPlayers();
-    mediaFiles = [];
-    currentIndex = -1;
-    updateButtons();
-    updatePlaylist();
-    hideEmbedPlayers();
+    <div class="controls">
+      <button id="prevBtn" disabled>Previous</button>
+      <button id="nextBtn" disabled>Next</button>
+    </div>
 
-    try {
-      const zip = await JSZip.loadAsync(file);
-      const entries = Object.values(zip.files).filter(f =>
-        !f.dir && /\.(mp3|mp4|wav|webm|ogg)$/i.test(f.name)
-      );
-      for (const entry of entries) {
-        const blob = await entry.async("blob");
-        const url = URL.createObjectURL(blob);
-        const type = /\.(mp4|webm)$/i.test(entry.name) ? "video" : "audio";
-        mediaFiles.push({ name: entry.name, url, type });
-      }
-      mediaFiles.sort((a, b) => a.name.localeCompare(b.name));
-      if (mediaFiles.length) {
-        const savedIndex = parseInt(getCookie('zipIndex') || '0', 10);
-        playMedia(savedIndex >= 0 && savedIndex < mediaFiles.length ? savedIndex : 0);
+    <ul class="playlist" id="playlist"></ul>
+
+    <hr style="border-color: #333; margin: 2rem 0;" />
+
+    <div class="embed-section">
+      <label for="scUrl">SoundCloud Track or Playlist URL</label>
+      <input type="url" id="scUrl" placeholder="Paste SoundCloud URL here" />
+      <button id="scLoadBtn">Load SoundCloud</button>
+      <iframe id="scPlayer" class="embed-player" style="display:none;" frameborder="no" allow="autoplay"></iframe>
+    </div>
+
+    <div class="embed-section" style="margin-top:1.5rem;">
+      <label for="ytUrl">YouTube Video or Playlist URL</label>
+      <input type="url" id="ytUrl" placeholder="Paste YouTube video or playlist URL here" />
+      <button id="ytLoadBtn">Load YouTube</button>
+      <iframe id="ytPlayer" class="embed-player youtube-embed" style="display:none;" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    </div>
+  </div>
+
+  <script>
+    // Helper cookie functions
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+      document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+    }
+
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+
+    const zipInput = document.getElementById('zipInput');
+    const playlistEl = document.getElementById('playlist');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const nowPlaying = document.getElementById('nowPlaying');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    const scUrlInput = document.getElementById("scUrl");
+    const scLoadBtn = document.getElementById("scLoadBtn");
+    const scPlayer = document.getElementById("scPlayer");
+
+    const ytUrlInput = document.getElementById("ytUrl");
+    const ytLoadBtn = document.getElementById("ytLoadBtn");
+    const ytPlayer = document.getElementById("ytPlayer");
+
+    let mediaFiles = [];
+    let currentIndex = -1;
+
+    function resetPlayers() {
+      videoPlayer.pause();
+      audioPlayer.pause();
+      videoPlayer.src = "";
+      audioPlayer.src = "";
+      videoPlayer.style.display = "none";
+      audioPlayer.style.display = "none";
+      nowPlaying.textContent = "No track loaded";
+    }
+
+    function hideEmbedPlayers() {
+      scPlayer.style.display = "none";
+      ytPlayer.style.display = "none";
+    }
+
+    function updateButtons() {
+      prevBtn.disabled = currentIndex <= 0;
+      nextBtn.disabled = currentIndex === -1 || currentIndex >= mediaFiles.length - 1;
+    }
+
+    function updatePlaylist() {
+      playlistEl.innerHTML = "";
+      mediaFiles.forEach((file, i) => {
+        const li = document.createElement("li");
+        li.textContent = file.name;
+        li.classList.toggle("active", i === currentIndex);
+        li.onclick = () => playMedia(i);
+        playlistEl.appendChild(li);
+      });
+    }
+
+    function playMedia(index) {
+      if (index < 0 || index >= mediaFiles.length) return;
+      currentIndex = index;
+      setCookie("lastSource", "zip");
+      setCookie("zipIndex", index);
+      const file = mediaFiles[index];
+      nowPlaying.textContent = `Now Playing: ${file.name}`;
+      resetPlayers();
+      hideEmbedPlayers();
+      if (file.type === "video") {
+        videoPlayer.src = file.url;
+        videoPlayer.style.display = "block";
+        videoPlayer.play();
+        videoPlayer.onended = playNext;
       } else {
-        nowPlaying.textContent = "No supported media files found in ZIP.";
+        audioPlayer.src = file.url;
+        audioPlayer.style.display = "block";
+        audioPlayer.play();
+        audioPlayer.onended = playNext;
       }
-    } catch (e) {
-      nowPlaying.textContent = "Error reading ZIP file.";
-      console.error(e);
+      updatePlaylist();
+      updateButtons();
     }
-  });
 
-  function updatePlaylist() {
-    playlistEl.innerHTML = "";
-    mediaFiles.forEach((file, i) => {
-      const li = document.createElement("li");
-      li.textContent = file.name;
-      li.classList.toggle("active", i === currentIndex);
-      li.onclick = () => playMedia(i);
-      playlistEl.appendChild(li);
+    function playNext() {
+      if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
+    }
+
+    function playPrev() {
+      if (currentIndex - 1 >= 0) playMedia(currentIndex - 1);
+    }
+
+    zipInput.addEventListener('change', async () => {
+      const file = zipInput.files[0];
+      if (!file) return;
+      resetPlayers();
+      mediaFiles = [];
+      currentIndex = -1;
+      updateButtons();
+      updatePlaylist();
+      hideEmbedPlayers();
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const entries = Object.values(zip.files).filter(f => !f.dir && /\.(mp3|mp4|wav|webm|ogg)$/i.test(f.name));
+        for (const entry of entries) {
+          const blob = await entry.async("blob");
+          const url = URL.createObjectURL(blob);
+          const type = /\.(mp4|webm)$/i.test(entry.name) ? "video" : "audio";
+          mediaFiles.push({ name: entry.name, url, type });
+        }
+        mediaFiles.sort((a, b) => a.name.localeCompare(b.name));
+        if (mediaFiles.length) {
+          const lastIndex = parseInt(getCookie("zipIndex") || "0", 10);
+          playMedia(lastIndex);
+        } else {
+          nowPlaying.textContent = "No supported media files found in ZIP.";
+        }
+      } catch (e) {
+        nowPlaying.textContent = "Error reading ZIP file.";
+        console.error(e);
+      }
     });
-  }
 
-  function playMedia(index) {
-    if (index < 0 || index >= mediaFiles.length) return;
-    currentIndex = index;
-    setCookie('zipIndex', currentIndex);
-    const file = mediaFiles[index];
-    nowPlaying.textContent = `Now Playing: ${file.name}`;
-    videoPlayer.pause();
-    audioPlayer.pause();
-    videoPlayer.style.display = "none";
-    audioPlayer.style.display = "none";
-    hideEmbedPlayers();
-    if (file.type === "video") {
-      videoPlayer.src = file.url;
-      videoPlayer.style.display = "block";
-      videoPlayer.play();
-      videoPlayer.onended = playNext;
-    } else {
-      audioPlayer.src = file.url;
-      audioPlayer.style.display = "block";
-      audioPlayer.play();
-      audioPlayer.onended = playNext;
-    }
-    updatePlaylist();
-    updateButtons();
-  }
+    prevBtn.addEventListener("click", playPrev);
+    nextBtn.addEventListener("click", playNext);
 
-  function playNext() {
-    if (currentIndex + 1 < mediaFiles.length) {
-      playMedia(currentIndex + 1);
-    }
-  }
-
-  function playPrev() {
-    if (currentIndex - 1 >= 0) {
-      playMedia(currentIndex - 1);
-    }
-  }
-
-  function updateButtons() {
-    prevBtn.disabled = currentIndex <= 0;
-    nextBtn.disabled = currentIndex === -1 || currentIndex >= mediaFiles.length - 1;
-  }
-
-  function resetPlayers() {
-    videoPlayer.pause();
-    audioPlayer.pause();
-    videoPlayer.src = "";
-    audioPlayer.src = "";
-    videoPlayer.style.display = "none";
-    audioPlayer.style.display = "none";
-    nowPlaying.textContent = "No track loaded";
-  }
-
-  function hideEmbedPlayers() {
-    scPlayer.style.display = "none";
-    ytPlayer.style.display = "none";
-  }
-
-  prevBtn.addEventListener("click", playPrev);
-  nextBtn.addEventListener("click", playNext);
-
-  // SoundCloud Embed Player
-  const scUrlInput = document.getElementById("scUrl");
-  const scLoadBtn = document.getElementById("scLoadBtn");
-  const scPlayer = document.getElementById("scPlayer");
-
-  scLoadBtn.addEventListener("click", () => {
-    const url = scUrlInput.value.trim();
-    if (!url) return;
-    setCookie("scUrl", url);
-    resetPlayers();
-    ytPlayer.style.display = "none";
-    const embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%236a9ae2&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true`;
-    scPlayer.src = embedUrl;
-    scPlayer.style.height = "166px";
-    scPlayer.style.display = "block";
-    nowPlaying.textContent = `Playing SoundCloud content`;
-    playlistEl.innerHTML = "";
-    prevBtn.disabled = true;
-    nextBtn.disabled = true;
-  });
-
-  // YouTube Embed Player
-  const ytUrlInput = document.getElementById("ytUrl");
-  const ytLoadBtn = document.getElementById("ytLoadBtn");
-  const ytPlayer = document.getElementById("ytPlayer");
-
-  ytLoadBtn.addEventListener("click", () => {
-    const url = ytUrlInput.value.trim();
-    if (!url) return;
-    setCookie("ytUrl", url);
-    resetPlayers();
-    scPlayer.style.display = "none";
-    let urlObj;
-    try {
-      urlObj = new URL(url);
-    } catch {
-      alert("Invalid YouTube URL");
-      return;
-    }
-    const playlistId = urlObj.searchParams.get("list");
-    if (playlistId) {
-      const embedUrl = `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1&controls=1`;
-      ytPlayer.src = embedUrl;
-      ytPlayer.style.display = "block";
-      nowPlaying.textContent = "Playing YouTube playlist";
+    scLoadBtn.addEventListener("click", () => {
+      const url = scUrlInput.value.trim();
+      if (!url) return;
+      resetPlayers();
+      hideEmbedPlayers();
+      const embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%236a9ae2&auto_play=true&visual=true`;
+      scPlayer.src = embedUrl;
+      scPlayer.style.display = "block";
+      nowPlaying.textContent = `Playing SoundCloud content`;
       playlistEl.innerHTML = "";
       prevBtn.disabled = true;
       nextBtn.disabled = true;
-      return;
-    }
-    const videoId = extractYouTubeID(url);
-    if (!videoId) {
-      alert("Invalid YouTube URL");
-      return;
-    }
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1`;
-    ytPlayer.src = embedUrl;
-    ytPlayer.style.display = "block";
-    nowPlaying.textContent = "Playing YouTube video";
-    playlistEl.innerHTML = "";
-    prevBtn.disabled = true;
-    nextBtn.disabled = true;
-  });
+      setCookie("lastSource", "soundcloud");
+      setCookie("soundcloudUrl", url);
+    });
 
-  function extractYouTubeID(url) {
-    try {
-      const u = new URL(url);
-      if (u.hostname === "youtu.be") return u.pathname.slice(1);
-      if (u.hostname.includes("youtube.com")) return u.searchParams.get("v");
-      return null;
-    } catch {
-      return null;
-    }
-  }
+    ytLoadBtn.addEventListener("click", () => {
+      const url = ytUrlInput.value.trim();
+      if (!url) return;
+      resetPlayers();
+      hideEmbedPlayers();
+      let urlObj;
+      try {
+        urlObj = new URL(url);
+      } catch {
+        alert("Invalid YouTube URL");
+        return;
+      }
 
-  // Auto-load cookies on page load
-  window.addEventListener("DOMContentLoaded", () => {
-    const savedScUrl = getCookie("scUrl");
-    if (savedScUrl) {
-      scUrlInput.value = savedScUrl;
-      scLoadBtn.click();
+      const playlistId = urlObj.searchParams.get("list");
+      let embedUrl = "";
+
+      if (playlistId) {
+        embedUrl = `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1`;
+        nowPlaying.textContent = "Playing YouTube playlist";
+      } else {
+        const videoId = extractYouTubeID(url);
+        if (!videoId) {
+          alert("Invalid YouTube URL");
+          return;
+        }
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        nowPlaying.textContent = "Playing YouTube video";
+      }
+
+      ytPlayer.src = embedUrl;
+      ytPlayer.style.display = "block";
+      playlistEl.innerHTML = "";
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      setCookie("lastSource", "youtube");
+      setCookie("youtubeUrl", url);
+    });
+
+    function extractYouTubeID(url) {
+      try {
+        const u = new URL(url);
+        if (u.hostname === "youtu.be") return u.pathname.slice(1);
+        if (u.hostname.includes("youtube.com")) return u.searchParams.get("v");
+        return null;
+      } catch {
+        return null;
+      }
     }
-    const savedYtUrl = getCookie("ytUrl");
-    if (savedYtUrl) {
-      ytUrlInput.value = savedYtUrl;
-      ytLoadBtn.click();
-    }
-  });
-</script>
+
+    // Load from cookie
+    window.addEventListener("DOMContentLoaded", () => {
+      const source = getCookie("lastSource");
+      if (source === "soundcloud") {
+        const url = getCookie("soundcloudUrl");
+        if (url) {
+          scUrlInput.value = url;
+          scLoadBtn.click();
+        }
+      } else if (source === "youtube") {
+        const url = getCookie("youtubeUrl");
+        if (url) {
+          ytUrlInput.value = url;
+          ytLoadBtn.click();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
