@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Media Folder Player</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: #eee;
+    max-width: 700px;
+    margin: 2rem auto;
+    padding: 1rem;
+  }
+  h1 {
+    text-align: center;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+  li {
+    padding: 0.5rem;
+    border-bottom: 1px solid #444;
+    cursor: pointer;
+  }
+  li:hover {
+    background: #333;
+  }
+  audio, video {
+    width: 100%;
+    margin-top: 1rem;
+    background: #000;
+  }
+</style>
+</head>
+<body>
+  <h1>Media Folder Player</h1>
+  <p>Select a media file from the list below:</p>
+  <ul id="fileList"></ul>
+
+  <audio id="audioPlayer" controls style="display:none;"></audio>
+  <video id="videoPlayer" controls style="display:none;"></video>
+
+<script>
+  const fileList = document.getElementById('fileList');
+  const audioPlayer = document.getElementById('audioPlayer');
+  const videoPlayer = document.getElementById('videoPlayer');
+
+  // Adjust this path if needed
+  const mediaPath = '/media/';
+
+  function isVideoFile(filename) {
+    return /\.(mp4|webm|mkv|mov)$/i.test(filename);
+  }
+
+  function isAudioFile(filename) {
+    return /\.(mp3|flac|wav|ogg|m4a)$/i.test(filename);
+  }
+
+  function clearPlayers() {
+    audioPlayer.style.display = 'none';
+    audioPlayer.pause();
+    audioPlayer.src = '';
+
+    videoPlayer.style.display = 'none';
+    videoPlayer.pause();
+    videoPlayer.src = '';
+  }
+
+  function playFile(filename) {
+    clearPlayers();
+    const url = mediaPath + filename;
+    if (isVideoFile(filename)) {
+      videoPlayer.style.display = 'block';
+      videoPlayer.src = url;
+      videoPlayer.play();
+    } else if (isAudioFile(filename)) {
+      audioPlayer.style.display = 'block';
+      audioPlayer.src = url;
+      audioPlayer.play();
+    } else {
+      alert('Unsupported file type.');
+    }
+  }
+
+  // Fetch directory listing (assumes server returns HTML index)
+  fetch(mediaPath)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    })
+    .then(html => {
+      // Parse HTML to find links to files
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const links = Array.from(doc.querySelectorAll('a'));
+      // Filter hrefs that look like files (not directories)
+      const files = links
+        .map(a => a.getAttribute('href'))
+        .filter(href => href && !href.endsWith('/') && (isAudioFile(href) || isVideoFile(href)));
+
+      if (files.length === 0) {
+        fileList.innerHTML = '<li>No media files found in /media/</li>';
+        return;
+      }
+
+      files.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = file;
+        li.onclick = () => playFile(file);
+        fileList.appendChild(li);
+      });
+    })
+    .catch(err => {
+      fileList.innerHTML = `<li style="color:red;">Failed to load media directory: ${err.message}</li>`;
+    });
+</script>
+</body>
+</html>
