@@ -1,1 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>DOSBox in Browser with ISO Upload</title>
+  <script src="https://js-dos.com/dosbox/dosbox.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: black;
+      color: white;
+      font-family: monospace;
+    }
+    #controls {
+      padding: 10px;
+      background: #222;
+      text-align: center;
+    }
+    #dosbox {
+      width: 100%;
+      height: calc(100vh - 60px);
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <input type="file" id="fileInput" accept=".iso,.img,.cue,.bin,.conf" />
+    <button id="runButton">Run DOSBox</button>
+  </div>
+  <div id="dosbox"></div>
+
+  <script>
+    let mountedFile = null;
+
+    const fileInput = document.getElementById("fileInput");
+    const runButton = document.getElementById("runButton");
+
+    fileInput.addEventListener("change", (e) => {
+      mountedFile = e.target.files[0];
+    });
+
+    runButton.addEventListener("click", () => {
+      if (!mountedFile) {
+        alert("Please select an ISO or image file.");
+        return;
+      }
+
+      const dosbox = new Dosbox({
+        id: "dosbox",
+        onload: function() {
+          // Mount ISO to D: using imgmount
+          dosbox.fs.createFile(mountedFile.name, mountedFile).then(() => {
+            // Generate a custom config to auto-mount the ISO
+            const conf = `
+[autoexec]
+@echo off
+imgmount d ${mountedFile.name} -t iso
+d:
+`;
+            const blob = new Blob([conf], { type: "text/plain" });
+            dosbox.fs.createFile("dosbox.conf", blob).then(() => {
+              dosbox.run("dosbox.conf");
+            });
+          });
+        },
+        onrun: () => {
+          console.log("DOSBox started");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
 
