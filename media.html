@@ -1,242 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GitHub Media Player with Metadata Artist</title>
-<style>
-  /* (same styling as before) */
-  body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    background: #f0f0f0;
-  }
-  h1 {
-    text-align: center;
-  }
-  #player-container {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    max-width: 600px;
-    margin: auto;
-  }
-  audio, video {
-    width: 100%;
-    margin-bottom: 10px;
-  }
-  button {
-    margin: 5px 5px 5px 0;
-    padding: 8px 15px;
-    cursor: pointer;
-  }
-  #playlist {
-    margin-top: 15px;
-    list-style: none;
-    padding-left: 0;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  #playlist li {
-    padding: 8px;
-    background: #eee;
-    margin-bottom: 4px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  #playlist li.playing {
-    background: #cce5ff;
-    font-weight: bold;
-  }
-  #file-input {
-    margin-bottom: 10px;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitHub Media Player with Metadata Artist</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f0f0f0;
+    }
+    h1 {
+      text-align: center;
+    }
+    #player-container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: auto;
+    }
+    audio, video {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    button {
+      margin: 5px 5px 5px 0;
+      padding: 8px 15px;
+      cursor: pointer;
+    }
+    #playlist {
+      margin-top: 15px;
+      list-style: none;
+      padding-left: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #playlist li {
+      padding: 8px;
+      background: #eee;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #playlist li.playing {
+      background: #cce5ff;
+      font-weight: bold;
+    }
+    #file-input {
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 <body>
-<h1>GitHub Media Player with Metadata Artist</h1>
-<div id="player-container">
-  <input type="file" id="file-input" multiple accept="audio/*,video/*" />
-  <br />
-  <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
-  <button id="sortByArtistBtn">Sort by Artist</button>
-  <br />
-  <!-- Audio/Video players -->
-  <audio id="audio-player" controls></audio>
-  <video id="video-player" controls style="display:none;"></video>
-  <ul id="playlist"></ul>
-</div>
+  <h1>GitHub Media Player with Metadata Artist</h1>
+  <div id="player-container">
+    <input type="file" id="file-input" multiple accept="audio/*,video/*" /><br />
+    <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
+    <button id="sortByArtistBtn">Sort by Artist</button>
+    <audio id="audio-player" controls></audio>
+    <video id="video-player" controls style="display:none;"></video>
+    <ul id="playlist"></ul>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
-<script>
-  const audioPlayer = document.getElementById('audio-player');
-  const videoPlayer = document.getElementById('video-player');
-  const playlistEl = document.getElementById('playlist');
-  const fileInput = document.getElementById('file-input');
-  const loadFromGitHubBtn = document.getElementById('loadFromGitHubBtn');
-  const sortByArtistBtn = document.getElementById('sortByArtistBtn');
+  <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
+  <script>
+    const audioPlayer = document.getElementById('audio-player');
+    const videoPlayer = document.getElementById('video-player');
+    const playlistEl = document.getElementById('playlist');
+    const fileInput = document.getElementById('file-input');
+    const loadFromGitHubBtn = document.getElementById('loadFromGitHubBtn');
+    const sortByArtistBtn = document.getElementById('sortByArtistBtn');
 
-  let mediaFiles = []; // {name, url, type, blob, artist}
-  let currentIndex = -1;
+    let mediaFiles = []; // {name, url, type, blob, artist}
+    let currentIndex = -1;
 
-  // Parse artist from filename fallback
-  function parseArtistFallback(filename) {
-    const baseName = filename.replace(/\.[^/.]+$/, "");
-    const parts = baseName.split(' - ');
-    if (parts.length > 1) {
-      return parts[0].trim();
+    function parseArtistFallback(filename) {
+      const baseName = filename.replace(/\.[^/.]+$/, "");
+      const parts = baseName.split(' - ');
+      return parts.length > 1 ? parts[0].trim() : '';
     }
-    return '';
-  }
 
-  // Read artist metadata from blob or url using jsmediatags
-  function readArtistMetadata(fileOrUrl) {
-    return new Promise((resolve) => {
-      // jsmediatags requires a File/Blob or URL accessible with CORS
-      try {
-        window.jsmediatags.read(fileOrUrl, {
-          onSuccess: function(tag) {
-            let artist = '';
-            if (tag.tags.artist) {
-              artist = tag.tags.artist.trim();
+    function readArtistMetadata(fileOrUrl) {
+      return new Promise((resolve) => {
+        try {
+          window.jsmediatags.read(fileOrUrl, {
+            onSuccess: function(tag) {
+              let artist = tag.tags.artist || '';
+              resolve(artist.trim());
+            },
+            onError: function() {
+              resolve('');
             }
-            resolve(artist);
-          },
-          onError: function(error) {
-            // fallback on error
-            resolve('');
-          }
-        });
-      } catch(e) {
-        resolve('');
+          });
+        } catch {
+          resolve('');
+        }
+      });
+    }
+
+    async function createMediaFileObject(file) {
+      let artist = '';
+      if (file instanceof File || file instanceof Blob) {
+        artist = await readArtistMetadata(file);
+      } else {
+        artist = parseArtistFallback(file.name || file);
       }
+      if (!artist) {
+        artist = parseArtistFallback(file.name || file);
+      }
+      return {
+        name: file.name || file,
+        url: file.url || file,
+        type: (file.type && file.type.startsWith('video')) || /\.(mp4|webm)$/i.test(file.name || file) ? 'video' : 'audio',
+        blob: file instanceof File || file instanceof Blob ? file : null,
+        artist,
+      };
+    }
+
+    function updatePlaylist() {
+      playlistEl.innerHTML = '';
+      mediaFiles.forEach((file, idx) => {
+        const li = document.createElement('li');
+        li.textContent = file.name + (file.artist ? ` (Artist: ${file.artist})` : '');
+        if (idx === currentIndex) li.classList.add('playing');
+        li.addEventListener('click', () => playMedia(idx));
+        playlistEl.appendChild(li);
+      });
+    }
+
+    function playMedia(index) {
+      if (index < 0 || index >= mediaFiles.length) return;
+      currentIndex = index;
+      const file = mediaFiles[index];
+
+      if (file.type === 'video') {
+        audioPlayer.style.display = 'none';
+        videoPlayer.style.display = 'block';
+        videoPlayer.src = file.url;
+        videoPlayer.play();
+        audioPlayer.pause();
+        audioPlayer.src = '';
+      } else {
+        videoPlayer.style.display = 'none';
+        audioPlayer.style.display = 'block';
+        audioPlayer.src = file.url;
+        audioPlayer.play();
+        videoPlayer.pause();
+        videoPlayer.src = '';
+      }
+
+      updatePlaylist();
+    }
+
+    audioPlayer.addEventListener('ended', () => {
+      if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
     });
-  }
 
-  async function createMediaFileObject(file) {
-    let artist = '';
-    if (file instanceof File || file instanceof Blob) {
-      artist = await readArtistMetadata(file);
-    } else {
-      // For URLs from GitHub, no easy way to get metadata due to CORS
-      // So just fallback to filename parsing
-      artist = parseArtistFallback(file.name || file);
-    }
-    if (!artist) {
-      artist = parseArtistFallback(file.name || file);
-    }
-    return {
-      name: file.name || file,
-      url: file.url || file,
-      type: (file.type && file.type.startsWith('video')) || /\.(mp4|webm)$/i.test(file.name || file) ? 'video' : 'audio',
-      blob: file instanceof File || file instanceof Blob ? file : null,
-      artist,
-    };
-  }
-
-  function updatePlaylist() {
-    playlistEl.innerHTML = '';
-    mediaFiles.forEach((file, idx) => {
-      const li = document.createElement('li');
-      li.textContent = file.name + (file.artist ? ` (Artist: ${file.artist})` : '');
-      if (idx === currentIndex) li.classList.add('playing');
-      li.addEventListener('click', () => playMedia(idx));
-      playlistEl.appendChild(li);
+    videoPlayer.addEventListener('ended', () => {
+      if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
     });
-  }
 
-  function playMedia(index) {
-    if (index < 0 || index >= mediaFiles.length) return;
-    currentIndex = index;
-    const file = mediaFiles[index];
-    if (file.type === 'video') {
-      audioPlayer.style.display = 'none';
-      videoPlayer.style.display = 'block';
-      videoPlayer.src = file.url;
-      videoPlayer.play();
-      audioPlayer.pause();
-      audioPlayer.src = '';
-    } else {
-      videoPlayer.style.display = 'none';
-      audioPlayer.style.display = 'block';
-      audioPlayer.src = file.url;
-      audioPlayer.play();
-      videoPlayer.pause();
-      videoPlayer.src = '';
-    }
-    updatePlaylist();
-  }
-
-  audioPlayer.addEventListener('ended', () => {
-    if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
-  });
-  videoPlayer.addEventListener('ended', () => {
-    if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
-  });
-
-  fileInput.addEventListener('change', async (event) => {
-    const files = event.target.files;
-    if (!files.length) return;
-
-    // Read metadata for each file asynchronously
-    mediaFiles = [];
-    for (const f of files) {
-      const mediaObj = await createMediaFileObject(f);
-      mediaObj.url = URL.createObjectURL(f);
-      mediaFiles.push(mediaObj);
-    }
-    currentIndex = -1;
-    updatePlaylist();
-    playMedia(0);
-  });
-
-  async function loadMediaFromGitHub() {
-    const owner = 'mnnm666op';
-    const repo = 'mnnm666op.github.io';
-    const path = 'media';
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
-      const files = await res.json();
-      const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
+    fileInput.addEventListener('change', async (event) => {
+      const files = event.target.files;
+      if (!files.length) return;
       mediaFiles = [];
       for (const f of files) {
-        if (f.type === 'file' && validExts.test(f.name)) {
-          // We cannot read metadata for remote URLs easily due to CORS
-          // So fallback to filename parsing only
-          mediaFiles.push({
-            name: f.name,
-            url: f.download_url,
-            type: /\.(mp4|webm)$/i.test(f.name) ? 'video' : 'audio',
-            blob: null,
-            artist: parseArtistFallback(f.name),
-          });
-        }
-      }
-      if (mediaFiles.length === 0) {
-        alert("No media files found in the GitHub repo folder.");
-        return;
+        const mediaObj = await createMediaFileObject(f);
+        mediaObj.url = URL.createObjectURL(f);
+        mediaFiles.push(mediaObj);
       }
       currentIndex = -1;
       updatePlaylist();
       playMedia(0);
-    } catch (err) {
-      alert(`Failed to load media from GitHub: ${err.message}`);
-    }
-  }
-  loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
-
-  sortByArtistBtn.addEventListener('click', () => {
-    mediaFiles.sort((a, b) => {
-      const artistA = a.artist.toLowerCase() || a.name.toLowerCase();
-      const artistB = b.artist.toLowerCase() || b.name.toLowerCase();
-      return artistA.localeCompare(artistB);
     });
-    currentIndex = -1;
-    updatePlaylist();
-    if (mediaFiles.length > 0) playMedia(0);
-  });
-</script>
+
+    async function loadMediaFromGitHub() {
+      const owner = 'mnnm666op';
+      const repo = 'mnnm666op.github.io';
+      const path = 'media';
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
+        const files = await res.json();
+        const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
+        mediaFiles = [];
+
+        for (const f of files) {
+          if (f.type === 'file' && validExts.test(f.name)) {
+            mediaFiles.push({
+              name: f.name,
+              url: f.download_url,
+              type: /\.(mp4|webm)$/i.test(f.name) ? 'video' : 'audio',
+              blob: null,
+              artist: parseArtistFallback(f.name),
+            });
+          }
+        }
+
+        if (mediaFiles.length === 0) {
+          alert("No media files found in the GitHub repo folder.");
+          return;
+        }
+
+        currentIndex = -1;
+        updatePlaylist();
+        playMedia(0);
+      } catch (err) {
+        alert(`Failed to load media from GitHub: ${err.message}`);
+      }
+    }
+
+    loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
+
+    sortByArtistBtn.addEventListener('click', () => {
+      mediaFiles.sort((a, b) => {
+        const artistA = a.artist.toLowerCase() || a.name.toLowerCase();
+        const artistB = b.artist.toLowerCase() || b.name.toLowerCase();
+        return artistA.localeCompare(artistB);
+      });
+      currentIndex = -1;
+      updatePlaylist();
+      if (mediaFiles.length > 0) playMedia(0);
+    });
+  </script>
 </body>
 </html>
