@@ -1,75 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DOSBox in Browser with ISO Upload</title>
-  <script src="https://js-dos.com/dosbox/dosbox.js"></script>
+  <title>DOSBox-X in Browser with ISO Support</title>
+  <script src="https://js-dos.com/v8/current/js-dos-api.js"></script>
   <style>
-    html, body {
+    body {
       margin: 0;
-      height: 100%;
-      background: black;
-      color: white;
       font-family: monospace;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
     #controls {
       padding: 10px;
       background: #222;
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
-    #dosbox {
-      width: 100%;
-      height: calc(100vh - 60px);
+    #dos {
+      flex-grow: 1;
+    }
+    input[type="file"] {
+      background: #333;
+      color: white;
+      padding: 6px;
+      border: 1px solid #555;
+    }
+    button {
+      background: #28a745;
+      border: none;
+      padding: 6px 12px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #218838;
     }
   </style>
 </head>
 <body>
   <div id="controls">
-    <input type="file" id="fileInput" accept=".iso,.img,.cue,.bin,.conf" />
-    <button id="runButton">Run DOSBox</button>
+    <input type="file" id="isoInput" accept=".iso,.img,.bin,.cue" />
+    <input type="text" id="autorun" placeholder="Autorun command (e.g., install.exe)" />
+    <button id="startBtn">Start DOSBox-X</button>
   </div>
-  <div id="dosbox"></div>
+  <div id="dos"></div>
 
   <script>
-    let mountedFile = null;
+    const { emulators } = Dos();
+    const startBtn = document.getElementById("startBtn");
+    const isoInput = document.getElementById("isoInput");
+    const autorunInput = document.getElementById("autorun");
 
-    const fileInput = document.getElementById("fileInput");
-    const runButton = document.getElementById("runButton");
+    startBtn.addEventListener("click", async () => {
+      const isoFile = isoInput.files[0];
+      if (!isoFile) return alert("Please select an ISO or IMG file first.");
 
-    fileInput.addEventListener("change", (e) => {
-      mountedFile = e.target.files[0];
-    });
+      // Load DOSBox-X with worker backend
+      const emulator = await emulators.dosboxXWorker({
+        id: "dos",
+        autoResize: true,
+        onError: (e) => console.error("DOSBox-X Error:", e)
+      });
 
-    runButton.addEventListener("click", () => {
-      if (!mountedFile) {
-        alert("Please select an ISO or image file.");
-        return;
-      }
+      emulator.events.on("ready", async () => {
+        // Mount the ISO in the virtual filesystem
+        await emulator.fs.createFile(isoFile.name, isoFile);
 
-      const dosbox = new Dosbox({
-        id: "dosbox",
-        onload: function() {
-          // Mount ISO to D: using imgmount
-          dosbox.fs.createFile(mountedFile.name, mountedFile).then(() => {
-            // Generate a custom config to auto-mount the ISO
-            const conf = `
-[autoexec]
-@echo off
-imgmount d ${mountedFile.name} -t iso
-d:
-`;
-            const blob = new Blob([conf], { type: "text/plain" });
-            dosbox.fs.createFile("dosbox.conf", blob).then(() => {
-              dosbox.run("dosbox.conf");
-            });
-          });
-        },
-        onrun: () => {
-          console.log("DOSBox started");
+        // Mount the ISO to drive D
+        emulator.sendCommand(`imgmount d ${isoFile.name} -t iso`);
+        emulator.sendCommand(`d:`);
+
+        // Auto-run command if specified
+        const autorun = autorunInput.value.trim();
+        if (autorun.length > 0) {
+          emulator.sendCommand(autorun);
+        } else {
+          emulator.sendCommand("dir");
         }
       });
+
+      emulator.start();
     });
   </script>
 </body>
 </html>
-
