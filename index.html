@@ -1,173 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Universal Media Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
-    input[type="file"], input[type="text"], button, select {
-      margin: 0.5rem 0; padding: 0.5rem; width: 100%;
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #f0f0f0;
     }
-    audio, video { display: block; margin: 1rem 0; max-width: 100%; }
-    .preview { margin-top: 1rem; }
-    pre { background: #eee; padding: 1rem; overflow: auto; }
+    header {
+      background-color: #1f1f1f;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+    header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    label {
+      font-weight: 600;
+      display: block;
+      margin: 1rem 0 0.5rem;
+    }
+    input[type="file"],
+    input[type="url"],
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background-color: #222;
+      color: #f0f0f0;
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      background-color: #444;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.25rem;
+    }
+    button:hover {
+      background-color: #666;
+    }
+    .now-playing {
+      font-size: 1.2rem;
+      margin: 1.5rem 0 0.5rem;
+      font-weight: bold;
+    }
+    audio, video {
+      width: 100%;
+      margin: 1rem 0;
+      background-color: #000;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .playlist {
+      list-style: none;
+      padding: 0;
+    }
+    .playlist li {
+      padding: 0.5rem;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+    }
+    .playlist li.active {
+      background-color: #333;
+      font-weight: bold;
+    }
+    .embed-section {
+      margin-top: 2rem;
+    }
+    .embed-player {
+      width: 100%;
+      height: 166px;
+      margin-top: 0.5rem;
+      border: none;
+    }
+    .youtube-embed {
+      height: 315px;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #444;
+      margin: 3rem 0;
+    }
+    #uploadStatus {
+      margin-top: 1rem;
+      color: #0f0;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://unpkg.com/music-metadata-browser/dist/music-metadata-browser.umd.js"></script>
 </head>
 <body>
-  <h1>Universal Media Player</h1>
-
-  <input type="file" id="fileInput" multiple accept="audio/*,video/*,.zip">
-  <input type="text" id="youtubeInput" placeholder="YouTube Video URL">
-  <button id="embedYouTube">Embed YouTube</button>
-  <input type="text" id="soundcloudInput" placeholder="SoundCloud Track URL">
-  <button id="embedSoundCloud">Embed SoundCloud</button>
-  <div id="preview" class="preview"></div>
-
-  <h2>Upload to GitHub</h2>
-  <input type="text" id="tokenInput" placeholder="GitHub Personal Access Token">
-  <input type="text" id="repoInput" placeholder="username/repo">
-  <input type="text" id="pathPrefix" placeholder="Path prefix (e.g., media/)" value="media/">
-  <button id="uploadBtn">Upload Media Files</button>
-  <pre id="uploadStatus"></pre>
-
+  <header>
+    <h1>🎵 Universal Media Player</h1>
+  </header>
+  <div class="container">
+    <label for="fileInput">Upload Media Files (MP3, FLAC, MP4, etc.)</label>
+    <input type="file" id="fileInput" multiple accept=".mp3,.flac,.wav,.ogg,.mp4,.webm,.m4a" />
+    <label for="zipInput">Upload ZIP Archive of Media</label>
+    <input type="file" id="zipInput" accept=".zip" />
+    <div class="now-playing" id="nowPlaying">No track loaded</div>
+    <video id="videoPlayer" controls style="display:none;"></video>
+    <audio id="audioPlayer" controls style="display:none;"></audio>
+    <div class="controls">
+      <button id="prevBtn" disabled>⏮️ Previous</button>
+      <button id="nextBtn" disabled>Next ⏭️</button>
+    </div>
+    <ul class="playlist" id="playlist"></ul>
+    <hr />
+    <div class="embed-section">
+      <label for="scUrl">SoundCloud URL</label>
+      <input type="url" id="scUrl" placeholder="https://soundcloud.com/..." />
+      <button id="scLoadBtn">Load SoundCloud</button>
+      <iframe id="scPlayer" class="embed-player" style="display:none;" frameborder="no" allow="autoplay"></iframe>
+    </div>
+    <div class="embed-section">
+      <label for="ytUrl">YouTube URL or Playlist</label>
+      <input type="url" id="ytUrl" placeholder="https://youtube.com/watch?v=..." />
+      <button id="ytLoadBtn">Load YouTube</button>
+      <iframe id="ytPlayer" class="embed-player youtube-embed" style="display:none;" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    </div>
+    <hr />
+    <div>
+      <h2>Upload to GitHub Repository</h2>
+      <label>GitHub Personal Access Token (with repo permissions)</label>
+      <input type="password" id="githubToken" placeholder="Paste your GitHub token here" />
+      <label>GitHub Repo Owner</label>
+      <input type="text" id="githubOwner" placeholder="GitHub username or org" />
+      <label>Repository Name</label>
+      <input type="text" id="githubRepo" placeholder="Repository name" />
+      <label>Upload Path Prefix (folder path in repo, e.g. media/)</label>
+      <input type="text" id="githubPathPrefix" placeholder="media/" />
+      <button id="uploadToGitHubBtn">Upload Current Playlist Files to GitHub</button>
+      <div id="uploadStatus"></div>
+      <button onclick="window.open('media.html', '_blank')">Open Media Page</button>
+    </div>
+  </div>
   <script>
+    function setCookie(name, value, days = 365) {
+      const d = new Date();
+      d.setTime(d.getTime() + days * 864e5);
+      document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+    }
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+      return match ? decodeURIComponent(match[2]) : null;
+    }
+
     const fileInput = document.getElementById("fileInput");
-    const preview = document.getElementById("preview");
-    const embedYouTubeBtn = document.getElementById("embedYouTube");
-    const embedSoundCloudBtn = document.getElementById("embedSoundCloud");
-    const uploadBtn = document.getElementById("uploadBtn");
+    const zipInput = document.getElementById("zipInput");
+    const playlistEl = document.getElementById("playlist");
+    const videoPlayer = document.getElementById("videoPlayer");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const nowPlaying = document.getElementById("nowPlaying");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const scUrlInput = document.getElementById("scUrl");
+    const scLoadBtn = document.getElementById("scLoadBtn");
+    const scPlayer = document.getElementById("scPlayer");
+    const ytUrlInput = document.getElementById("ytUrl");
+    const ytLoadBtn = document.getElementById("ytLoadBtn");
+    const ytPlayer = document.getElementById("ytPlayer");
+
+    const uploadBtn = document.getElementById("uploadToGitHubBtn");
+    const tokenInput = document.getElementById("githubToken");
+    const ownerInput = document.getElementById("githubOwner");
+    const repoInput = document.getElementById("githubRepo");
+    const pathPrefixInput = document.getElementById("githubPathPrefix");
     const uploadStatus = document.getElementById("uploadStatus");
 
     let mediaFiles = [];
+    let currentIndex = -1;
+    const validMediaRegex = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
 
-    function createMediaElement(type, url) {
-      if (type.startsWith("audio")) {
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = url;
-        return audio;
-      } else if (type.startsWith("video")) {
-        const video = document.createElement("video");
-        video.controls = true;
-        video.src = url;
-        return video;
+    function resetPlayers() {
+      videoPlayer.pause();
+      audioPlayer.pause();
+      videoPlayer.src = "";
+      audioPlayer.src = "";
+      videoPlayer.style.display = "none";
+      audioPlayer.style.display = "none";
+      nowPlaying.textContent = "No track loaded";
+    }
+    function hideEmbedPlayers() {
+      scPlayer.style.display = "none";
+      ytPlayer.style.display = "none";
+    }
+    function updateButtons() {
+      prevBtn.disabled = currentIndex <= 0;
+      nextBtn.disabled = currentIndex === -1 || currentIndex >= mediaFiles.length - 1;
+    }
+    function updatePlaylist() {
+      playlistEl.innerHTML = "";
+      mediaFiles.forEach((file, i) => {
+        const li = document.createElement("li");
+        li.textContent = file.name;
+        li.classList.toggle("active", i === currentIndex);
+        li.onclick = () => playMedia(i);
+        playlistEl.appendChild(li);
+      });
+    }
+    function playMedia(index) {
+      if (index < 0 || index >= mediaFiles.length) return;
+      currentIndex = index;
+      const file = mediaFiles[index];
+      nowPlaying.textContent = `Now Playing: ${file.name}`;
+      resetPlayers();
+      hideEmbedPlayers();
+      if (file.type === "video") {
+        videoPlayer.src = file.url;
+        videoPlayer.style.display = "block";
+        videoPlayer.play();
+        videoPlayer.onended = playNext;
+      } else {
+        audioPlayer.src = file.url;
+        audioPlayer.style.display = "block";
+        audioPlayer.play();
+        audioPlayer.onended = playNext;
+      }
+      updatePlaylist();
+      updateButtons();
+      setCookie("lastSource", "file");
+      setCookie("fileIndex", index);
+    }
+    function playNext() {
+      if (currentIndex + 1 < mediaFiles.length) playMedia(currentIndex + 1);
+    }
+    function playPrev() {
+      if (currentIndex - 1 >= 0) playMedia(currentIndex - 1);
+    }
+    prevBtn.addEventListener("click", playPrev);
+    nextBtn.addEventListener("click", playNext);
+
+    // Handle direct file upload
+    fileInput.addEventListener("change", () => {
+      resetPlayers();
+      mediaFiles = [];
+      currentIndex = -1;
+      updateButtons();
+      updatePlaylist();
+      hideEmbedPlayers();
+      const files = Array.from(fileInput.files);
+      files.forEach(f => {
+        if (!validMediaRegex.test(f.name)) return;
+        const url = URL.createObjectURL(f);
+        const type = /\.(mp4|webm)$/i.test(f.name) ? "video" : "audio";
+        // Keep original File object for GitHub upload
+        mediaFiles.push({ name: f.name, url, type, file: f });
+      });
+      if (mediaFiles.length) playMedia(0);
+    });
+
+    // Handle ZIP file upload
+    zipInput.addEventListener("change", async () => {
+      resetPlayers();
+      mediaFiles = [];
+      currentIndex = -1;
+      updateButtons();
+      updatePlaylist();
+      hideEmbedPlayers();
+
+      const zipFile = zipInput.files[0];
+      if (!zipFile) return;
+      const zip = new JSZip();
+      try {
+        const loadedZip = await zip.loadAsync(zipFile);
+        const entries = Object.values(loadedZip.files).filter(f => !f.dir && validMediaRegex.test(f.name));
+        for (const entry of entries) {
+          const blob = await entry.async("blob");
+          const url = URL.createObjectURL(blob);
+          const type = /\.(mp4|webm)$/i.test(entry.name) ? "video" : "audio";
+          // For ZIP blobs, store blob for upload
+          mediaFiles.push({ name: entry.name, url, type, file: null, blob });
+        }
+        if (mediaFiles.length) playMedia(0);
+      } catch (e) {
+        alert("Failed to load ZIP file: " + e.message);
+      }
+    });
+
+    // SoundCloud embed
+    scLoadBtn.addEventListener("click", () => {
+      const url = scUrlInput.value.trim();
+      if (!url) return alert("Please enter a SoundCloud URL.");
+      resetPlayers();
+      hideEmbedPlayers();
+      scPlayer.style.display = "block";
+      scPlayer.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&auto_play=true";
+      nowPlaying.textContent = "Playing SoundCloud: " + url;
+      setCookie("lastSource", "soundcloud");
+      setCookie("soundcloudUrl", url);
+    });
+
+    // YouTube embed
+    ytLoadBtn.addEventListener("click", () => {
+      const url = ytUrlInput.value.trim();
+      if (!url) return alert("Please enter a YouTube URL.");
+      resetPlayers();
+      hideEmbedPlayers();
+
+      let videoId = null;
+      let playlistId = null;
+      try {
+        const urlObj = new URL(url);
+        if (urlObj.hostname.includes("youtube.com")) {
+          if (urlObj.searchParams.get("v")) {
+            videoId = urlObj.searchParams.get("v");
+          } else if (urlObj.searchParams.get("list")) {
+            playlistId = urlObj.searchParams.get("list");
+          }
+        } else if (urlObj.hostname === "youtu.be") {
+          videoId = urlObj.pathname.slice(1);
+        }
+      } catch {
+        alert("Invalid YouTube URL.");
+        return;
+      }
+      let embedUrl = "";
+      if (playlistId) {
+        embedUrl = `https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=1`;
+      } else if (videoId) {
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+      } else {
+        alert("Cannot parse YouTube URL.");
+        return;
+      }
+      ytPlayer.style.display = "block";
+      ytPlayer.src = embedUrl;
+      nowPlaying.textContent = "Playing YouTube: " + url;
+      setCookie("lastSource", "youtube");
+      setCookie("youtubeUrl", url);
+    });
+
+    // Restore last played media on load
+    window.addEventListener("load", () => {
+      const lastSource = getCookie("lastSource");
+      if (lastSource === "file") {
+        const idx = parseInt(getCookie("fileIndex"));
+        if (!isNaN(idx) && mediaFiles.length > idx) {
+          playMedia(idx);
+        }
+      } else if (lastSource === "soundcloud") {
+        const url = getCookie("soundcloudUrl");
+        if (url) {
+          scUrlInput.value = url;
+          scLoadBtn.click();
+        }
+      } else if (lastSource === "youtube") {
+        const url = getCookie("youtubeUrl");
+        if (url) {
+          ytUrlInput.value = url;
+          ytLoadBtn.click();
+        }
+      }
+    });
+
+    // GitHub upload code below
+
+    async function getFileSha(owner, repo, path, token) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json" }
+      });
+      if (res.status === 200) {
+        const data = await res.json();
+        return data.sha;
       }
       return null;
     }
 
-    async function extractArtist(file) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const metadata = await musicMetadata.parseBuffer(Buffer.from(arrayBuffer), file.type);
-        return metadata.common.artist || "Unknown Artist";
-      } catch (e) {
-        return "Unknown Artist";
-      }
+    async function uploadFileToGitHub(owner, repo, path, contentBase64, message, token, sha = null) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+      const body = { message, content: contentBase64 };
+      if (sha) body.sha = sha;
+
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        body: JSON.stringify(body),
+      });
+      return res.json();
     }
 
-    fileInput.addEventListener("change", async () => {
-      preview.innerHTML = "";
-      mediaFiles = [];
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Data = reader.result.split(",")[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
 
-      for (const f of fileInput.files) {
-        if (f.name.endsWith(".zip")) {
-          const zip = await JSZip.loadAsync(f);
-          for (const entry of Object.values(zip.files)) {
-            if (!entry.dir) {
-              const blob = await entry.async("blob");
-              const type = blob.type || (entry.name.endsWith(".mp3") ? "audio/mpeg" : "application/octet-stream");
-              const url = URL.createObjectURL(blob);
-              const fileObj = new File([blob], entry.name, { type });
-              const artist = await extractArtist(fileObj);
-              mediaFiles.push({ name: entry.name, url, type, file: fileObj, artist });
-
-              const el = createMediaElement(type, url);
-              if (el) preview.appendChild(el);
-            }
-          }
-        } else {
-          const url = URL.createObjectURL(f);
-          const artist = await extractArtist(f);
-          mediaFiles.push({ name: f.name, url, type: f.type, file: f, artist });
-
-          const el = createMediaElement(f.type, url);
-          if (el) preview.appendChild(el);
-        }
-      }
-    });
-
-    embedYouTubeBtn.addEventListener("click", () => {
-      const url = document.getElementById("youtubeInput").value.trim();
-      const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-      if (match) {
-        const iframe = document.createElement("iframe");
-        iframe.width = "560";
-        iframe.height = "315";
-        iframe.src = `https://www.youtube.com/embed/${match[1]}`;
-        iframe.allow = "autoplay; encrypted-media";
-        iframe.allowFullscreen = true;
-        preview.appendChild(iframe);
-      }
-    });
-
-    embedSoundCloudBtn.addEventListener("click", () => {
-      const url = document.getElementById("soundcloudInput").value.trim();
-      if (url) {
-        const iframe = document.createElement("iframe");
-        iframe.width = "100%";
-        iframe.height = "166";
-        iframe.scrolling = "no";
-        iframe.frameBorder = "no";
-        iframe.allow = "autoplay";
-        iframe.src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=false`;
-        preview.appendChild(iframe);
-      }
-    });
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Data = reader.result.split(",")[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
 
     uploadBtn.addEventListener("click", async () => {
-      const token = document.getElementById("tokenInput").value.trim();
-      const repo = document.getElementById("repoInput").value.trim();
-      const prefix = document.getElementById("pathPrefix").value.trim().replace(/^\/|\/$/g, "") + "/";
+      const token = tokenInput.value.trim();
+      const owner = ownerInput.value.trim();
+      const repo = repoInput.value.trim();
+      let prefix = pathPrefixInput.value.trim();
+      if (prefix && !prefix.endsWith("/")) prefix += "/";
 
-      if (!token || !repo) {
-        alert("Please enter both GitHub token and repo.");
+      uploadStatus.style.color = "#0f0";
+      if (!token || !owner || !repo) {
+        alert("Please fill in GitHub Token, Owner and Repo.");
+        return;
+      }
+      if (mediaFiles.length === 0) {
+        alert("No media files loaded to upload.");
         return;
       }
 
-      uploadStatus.textContent = "Uploading...\n";
+      uploadStatus.textContent = "Starting upload...\n";
 
-      for (const fileObj of mediaFiles) {
-        const file = fileObj.file;
-        const artistFolder = (fileObj.artist || "Unknown Artist").replace(/[\\/:*?"<>|]/g, "_");
-        const fullPath = `${prefix}${artistFolder}/${file.name}`;
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const file = mediaFiles[i];
+        uploadStatus.textContent += `Uploading ${file.name} (${i + 1}/${mediaFiles.length})...\n`;
 
-        const content = await file.arrayBuffer();
-        const base64Content = btoa(String.fromCharCode(...new Uint8Array(content)));
+        try {
+          let base64;
+          if (file.file) {
+            base64 = await fileToBase64(file.file);
+          } else if (file.blob) {
+            base64 = await blobToBase64(file.blob);
+          } else {
+            uploadStatus.textContent += `Skipping ${file.name} - no file or blob data.\n`;
+            continue;
+          }
 
-        const url = `https://api.github.com/repos/${repo}/contents/${fullPath}`;
-        const res = await fetch(url, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: `Upload ${file.name}`,
-            content: base64Content
-          })
-        });
+          const path = prefix + file.name;
+          const sha = await getFileSha(owner, repo, path, token);
 
-        if (res.ok) {
-          uploadStatus.textContent += `✅ Uploaded to: ${fullPath}\n`;
-        } else {
-          const error = await res.json();
-          uploadStatus.textContent += `❌ Error uploading ${file.name}: ${error.message}\n`;
+          const commitMessage = sha
+            ? `Update ${file.name} via Universal Media Player`
+            : `Add ${file.name} via Universal Media Player`;
+
+          const result = await uploadFileToGitHub(owner, repo, path, base64, commitMessage, token, sha);
+
+          if (result.content && result.content.sha) {
+            uploadStatus.textContent += `Uploaded ${file.name} successfully.\n`;
+          } else {
+            throw new Error(JSON.stringify(result));
+          }
+        } catch (e) {
+          uploadStatus.style.color = "#f00";
+          uploadStatus.textContent += `Error uploading ${file.name}: ${e.message}\n`;
+          break;
         }
       }
-
-      uploadStatus.textContent += "Done!";
+      uploadStatus.textContent += "Upload process finished.\n";
     });
   </script>
 </body>
