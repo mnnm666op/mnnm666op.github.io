@@ -5,190 +5,146 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GitHub Media Player with Metadata Artist and Folder Sections</title>
   <style>
-    /* Modern base styles */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-
-    :root {
-      --color-bg: #f9fafb;
-      --color-primary: #3b82f6;
-      --color-primary-hover: #2563eb;
-      --color-text-primary: #111827;
-      --color-text-secondary: #6b7280;
-      --color-card-bg: #ffffff;
-      --color-card-shadow: rgba(0, 0, 0, 0.08);
-      --color-accent: #60a5fa;
-      --color-playing-bg: #dbeafe;
-      --border-radius: 12px;
-      --transition-speed: 0.25s;
-      --max-width: 720px;
-    }
-
+    /* Modern and clean styling */
     body {
-      font-family: 'Inter', Arial, sans-serif;
-      background-color: var(--color-bg);
-      color: var(--color-text-primary);
-      margin: 0;
-      padding: 2rem 1rem;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background: #f9fafb;
+      color: #333;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
     }
-
     h1 {
-      font-weight: 600;
-      font-size: 2rem;
-      margin-bottom: 1.5rem;
-      color: var(--color-primary);
       text-align: center;
-      user-select: none;
+      margin-bottom: 20px;
+      color: #2c3e50;
     }
-
     #player-container {
-      background: var(--color-card-bg);
-      padding: 2rem;
-      border-radius: var(--border-radius);
-      box-shadow: 0 8px 20px var(--color-card-shadow);
-      max-width: var(--max-width);
+      background: white;
+      padding: 25px 30px;
+      border-radius: 12px;
+      max-width: 720px;
+      width: 100%;
+      box-shadow: 0 4px 15px rgb(0 0 0 / 0.1);
+      box-sizing: border-box;
+    }
+    input[type="file"] {
+      margin-bottom: 15px;
+      font-size: 14px;
+      padding: 6px;
       width: 100%;
       box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    input[type="file"] {
-      padding: 0.5rem 1rem;
-      border-radius: var(--border-radius);
-      border: 1.5px solid #d1d5db;
+      border: 1px solid #ccc;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 1rem;
-      transition: border-color var(--transition-speed);
+      transition: border-color 0.3s ease;
     }
-    input[type="file"]:focus,
-    input[type="file"]:hover {
-      border-color: var(--color-primary);
+    input[type="file"]:focus {
       outline: none;
+      border-color: #4a90e2;
     }
-
     button {
-      background-color: var(--color-primary);
-      border: none;
-      border-radius: var(--border-radius);
-      color: white;
-      padding: 0.75rem 1.5rem;
-      font-weight: 600;
-      font-size: 1rem;
+      margin: 6px 8px 15px 0;
+      padding: 10px 18px;
       cursor: pointer;
-      transition: background-color var(--transition-speed), box-shadow var(--transition-speed);
+      border: none;
+      border-radius: 8px;
+      background-color: #4a90e2;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      transition: background-color 0.25s ease;
       user-select: none;
-      box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
-      flex-shrink: 0;
-      margin-top: 0.5rem;
     }
     button:hover {
-      background-color: var(--color-primary-hover);
-      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.5);
+      background-color: #357ABD;
     }
-    button:active {
-      transform: scale(0.97);
-    }
-
     audio, video {
       width: 100%;
-      border-radius: var(--border-radius);
-      box-shadow: 0 6px 15px var(--color-card-shadow);
-      background: black;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      background: #000;
       outline: none;
     }
-
+    video {
+      max-height: 360px;
+    }
     #folders-container {
-      max-width: var(--max-width);
+      margin-top: 30px;
+      max-width: 720px;
       width: 100%;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
     }
-
     .folder-section {
-      background: var(--color-card-bg);
-      border-radius: var(--border-radius);
-      padding: 1.25rem 1.5rem;
-      box-shadow: 0 5px 15px var(--color-card-shadow);
-      user-select: none;
+      background: white;
+      margin-top: 25px;
+      padding: 18px 22px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgb(0 0 0 / 0.05);
+      box-sizing: border-box;
     }
-
     .folder-section h2 {
       margin-top: 0;
-      font-weight: 600;
-      font-size: 1.25rem;
-      color: var(--color-primary);
-      border-bottom: 2px solid var(--color-primary);
-      padding-bottom: 0.25rem;
+      border-bottom: 2px solid #4a90e2;
+      padding-bottom: 8px;
+      color: #2c3e50;
+      font-size: 20px;
+      font-weight: 700;
     }
-
     ul.playlist {
+      margin-top: 14px;
       list-style: none;
       padding-left: 0;
-      margin-top: 1rem;
-      max-height: 250px;
+      max-height: 220px;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: var(--color-primary) transparent;
+      scrollbar-color: #4a90e2 #f0f0f0;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fafafa;
     }
     ul.playlist::-webkit-scrollbar {
       width: 8px;
     }
+    ul.playlist::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
     ul.playlist::-webkit-scrollbar-thumb {
-      background-color: var(--color-primary);
-      border-radius: 10px;
+      background-color: #4a90e2;
+      border-radius: 8px;
     }
     ul.playlist li {
-      padding: 0.75rem 1rem;
-      border-radius: var(--border-radius);
-      margin-bottom: 0.5rem;
-      background: #f3f4f6;
-      color: var(--color-text-primary);
-      font-weight: 500;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e2e2e2;
       cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: background-color var(--transition-speed), box-shadow var(--transition-speed);
+      transition: background-color 0.2s ease;
+      font-weight: 500;
+      color: #34495e;
+    }
+    ul.playlist li:last-child {
+      border-bottom: none;
     }
     ul.playlist li:hover {
-      background-color: var(--color-accent);
-      color: white;
-      box-shadow: 0 4px 10px rgba(96, 165, 250, 0.6);
+      background-color: #dbe9ff;
+      color: #2c3e50;
     }
     ul.playlist li.playing {
-      background-color: var(--color-playing-bg);
+      background-color: #4a90e2;
+      color: white;
       font-weight: 700;
-      color: var(--color-primary);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
-      cursor: default;
-    }
-
-    /* Responsive tweaks */
-    @media (max-width: 480px) {
-      #player-container, #folders-container {
-        padding: 1rem;
-      }
-      button {
-        padding: 0.6rem 1rem;
-        font-size: 0.9rem;
-      }
     }
   </style>
 </head>
 <body>
   <h1>GitHub Media Player with Metadata Artist and Folder Sections</h1>
   <div id="player-container">
-    <input type="file" id="file-input" multiple accept="audio/*,video/*" /><br />
-    <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
-    <button id="sortByArtistBtn">Sort by Artist</button>
+    <input type="file" id="file-input" multiple accept="audio/*,video/*" />
+    <div>
+      <button id="loadFromGitHubBtn">Load Media from GitHub Repo</button>
+      <button id="sortByArtistBtn">Sort by Artist</button>
+    </div>
     <audio id="audio-player" controls></audio>
     <video id="video-player" controls style="display:none;"></video>
   </div>
@@ -314,58 +270,88 @@
       }
       updateFoldersDisplay();
     }
-    function playNext() {
-      if (currentIndex + 1 < flattenedMedia.length) {
-        playMedia(currentIndex + 1);
+    audioPlayer.addEventListener('ended', () => {
+      if (currentIndex + 1 < flattenedMedia.length) playMedia(currentIndex + 1);
+    });
+    videoPlayer.addEventListener('ended', () => {
+      if (currentIndex + 1 < flattenedMedia.length) playMedia(currentIndex + 1);
+    });
+    fileInput.addEventListener('change', async (event) => {
+      const files = event.target.files;
+      if (!files.length) return;
+      mediaFiles = [];
+      for (const f of files) {
+        const mediaObj = await createMediaFileObject(f);
+        mediaObj.url = URL.createObjectURL(f);
+        // Since local files don't have path, put them in 'root'
+        mediaObj.path = 'root/' + mediaObj.name;
+        mediaFiles.push(mediaObj);
+      }
+      currentIndex = -1;
+      updateFoldersDisplay();
+      playMedia(0);
+    });
+    async function fetchGitHubMediaRecursive(owner, repo, path = 'media') {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
+        const items = await res.json();
+        const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
+        let mediaList = [];
+        for (const item of items) {
+          if (item.type === 'file' && validExts.test(item.name)) {
+            mediaList.push({
+              name: item.name,
+              path: item.path,
+              url: item.download_url,
+              type: /\.(mp4|webm)$/i.test(item.name) ? 'video' : 'audio',
+              blob: null,
+              artist: parseArtistFallback(item.name),
+            });
+          } else if (item.type === 'dir') {
+            const subfolderMedia = await fetchGitHubMediaRecursive(owner, repo, item.path);
+            mediaList = mediaList.concat(subfolderMedia);
+          }
+        }
+        return mediaList;
+      } catch (err) {
+        console.error(`Error fetching ${path}:`, err);
+        return [];
       }
     }
-    audioPlayer.addEventListener('ended', playNext);
-    videoPlayer.addEventListener('ended', playNext);
-
-    // Handle local file input
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      for (const file of files) {
-        // create object URL for playback
-        const url = URL.createObjectURL(file);
-        const mediaFile = await createMediaFileObject({
-          name: file.name,
-          url,
-          type: file.type,
-          blob: file,
-          path: file.name
-        });
-        mediaFiles.push(mediaFile);
+    async function loadMediaFromGitHub() {
+      const owner = 'mnnm666op';
+      const repo = 'mnnm666op.github.io';
+      const basePath = 'media';
+      mediaFiles = await fetchGitHubMediaRecursive(owner, repo, basePath);
+      if (mediaFiles.length === 0) {
+        alert("No media files found in the GitHub repo folder.");
+        return;
       }
+      currentIndex = -1;
       updateFoldersDisplay();
-    });
-
-    // Load media from GitHub repo (stub with example)
-    loadFromGitHubBtn.addEventListener('click', async () => {
-      // Example: simulate loading from GitHub with some static data
-      // Replace this with your actual GitHub API calls to list media files and get URLs
-      const exampleFiles = [
-        { name: 'Artist1 - Song1.mp3', url: 'https://cdn.jsdelivr.net/gh/user/repo/path/Artist1 - Song1.mp3', path: 'folder1/Artist1 - Song1.mp3' },
-        { name: 'Artist2 - Video1.mp4', url: 'https://cdn.jsdelivr.net/gh/user/repo/path/Artist2 - Video1.mp4', path: 'folder2/Artist2 - Video1.mp4' },
-        { name: 'SongNoArtist.mp3', url: 'https://cdn.jsdelivr.net/gh/user/repo/path/SongNoArtist.mp3', path: 'folder1/SongNoArtist.mp3' }
-      ];
-      for (const file of exampleFiles) {
-        const mediaFile = await createMediaFileObject(file);
-        mediaFiles.push(mediaFile);
-      }
-      updateFoldersDisplay();
-    });
-
-    // Sort by artist button
+      playMedia(0);
+    }
+    loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
     sortByArtistBtn.addEventListener('click', () => {
-      mediaFiles.sort((a, b) => {
-        const artistA = (a.artist || '').toLowerCase();
-        const artistB = (b.artist || '').toLowerCase();
-        if (artistA < artistB) return -1;
-        if (artistA > artistB) return 1;
-        return 0;
-      });
+      // Sort each folder's files by artist name
+      const grouped = groupByFolder(mediaFiles);
+      for (const folder in grouped) {
+        grouped[folder].sort((a, b) => {
+          const artistA = a.artist.toLowerCase() || a.name.toLowerCase();
+          const artistB = b.artist.toLowerCase() || b.name.toLowerCase();
+          return artistA.localeCompare(artistB);
+        });
+      }
+      // Flatten back to mediaFiles array in folder order
+      mediaFiles = [];
+      for (const folder in grouped) {
+        mediaFiles = mediaFiles.concat(grouped[folder]);
+      }
+      currentIndex = -1;
       updateFoldersDisplay();
+      if (mediaFiles.length > 0) playMedia(0);
     });
   </script>
 </body>
