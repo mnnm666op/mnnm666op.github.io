@@ -72,7 +72,7 @@
     const loadFromGitHubBtn = document.getElementById('loadFromGitHubBtn');
     const sortByArtistBtn = document.getElementById('sortByArtistBtn');
 
-    let mediaFiles = []; // {name, url, type, blob, artist}
+    let mediaFiles = [];
     let currentIndex = -1;
 
     function parseArtistFallback(filename) {
@@ -115,6 +115,7 @@
         type: (file.type && file.type.startsWith('video')) || /\.(mp4|webm)$/i.test(file.name || file) ? 'video' : 'audio',
         blob: file instanceof File || file instanceof Blob ? file : null,
         artist,
+        path: file.path || file.name || file.url || ''
       };
     }
 
@@ -122,7 +123,8 @@
       playlistEl.innerHTML = '';
       mediaFiles.forEach((file, idx) => {
         const li = document.createElement('li');
-        li.textContent = file.name + (file.artist ? ` (Artist: ${file.artist})` : '');
+        const displayName = file.path || file.name;
+        li.textContent = `${displayName}${file.artist ? ` (Artist: ${file.artist})` : ''}`;
         if (idx === currentIndex) li.classList.add('playing');
         li.addEventListener('click', () => playMedia(idx));
         playlistEl.appendChild(li);
@@ -175,41 +177,53 @@
       playMedia(0);
     });
 
-    async function loadMediaFromGitHub() {
-      const owner = 'mnnm666op';
-      const repo = 'mnnm666op.github.io';
-      const path = 'media';
+    async function fetchGitHubMediaRecursive(owner, repo, path = 'media') {
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
-        const files = await res.json();
+        const items = await res.json();
         const validExts = /\.(mp3|flac|wav|ogg|m4a|mp4|webm)$/i;
-        mediaFiles = [];
+        let mediaList = [];
 
-        for (const f of files) {
-          if (f.type === 'file' && validExts.test(f.name)) {
-            mediaFiles.push({
-              name: f.name,
-              url: f.download_url,
-              type: /\.(mp4|webm)$/i.test(f.name) ? 'video' : 'audio',
+        for (const item of items) {
+          if (item.type === 'file' && validExts.test(item.name)) {
+            mediaList.push({
+              name: item.name,
+              path: item.path,
+              url: item.download_url,
+              type: /\.(mp4|webm)$/i.test(item.name) ? 'video' : 'audio',
               blob: null,
-              artist: parseArtistFallback(f.name),
+              artist: parseArtistFallback(item.name),
             });
+          } else if (item.type === 'dir') {
+            const subfolderMedia = await fetchGitHubMediaRecursive(owner, repo, item.path);
+            mediaList = mediaList.concat(subfolderMedia);
           }
         }
 
-        if (mediaFiles.length === 0) {
-          alert("No media files found in the GitHub repo folder.");
-          return;
-        }
-
-        currentIndex = -1;
-        updatePlaylist();
-        playMedia(0);
+        return mediaList;
       } catch (err) {
-        alert(`Failed to load media from GitHub: ${err.message}`);
+        console.error(`Error fetching ${path}:`, err);
+        return [];
       }
+    }
+
+    async function loadMediaFromGitHub() {
+      const owner = 'mnnm666op';
+      const repo = 'mnnm666op.github.io';
+      const basePath = 'media';
+
+      mediaFiles = await fetchGitHubMediaRecursive(owner, repo, basePath);
+
+      if (mediaFiles.length === 0) {
+        alert("No media files found in the GitHub repo folder.");
+        return;
+      }
+
+      currentIndex = -1;
+      updatePlaylist();
+      playMedia(0);
     }
 
     loadFromGitHubBtn.addEventListener('click', loadMediaFromGitHub);
