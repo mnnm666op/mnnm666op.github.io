@@ -121,42 +121,65 @@
       button.addEventListener('click', () => {
         const key = button.dataset.key;
         sendKeyToIframe(key);
-      });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My DOS API</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: black;
+      color: lime;
+      font-family: monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+    #input {
+      border: none;
+      padding: 10px;
+      width: 100%;
+      background: black;
+      color: lime;
+      font-family: monospace;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="output">Microsoft DOS [Version 1.0]<br>A:\></div>
+  <input id="input" autofocus autocomplete="off" spellcheck="false" />
+
+  <script src="dos.js"></script>
+  <script>
+    const output = document.getElementById('output');
+    const input = document.getElementById('input');
+    const dos = new DOS(output);
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cmd = input.value.trim();
+        output.innerHTML += cmd + '\n';
+        dos.run(cmd);
+        output.innerHTML += `${dos.cwd}>`;
+        input.value = '';
+        output.scrollTop = output.scrollHeight;
+      }
     });
   </script>
 </body>
 </html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>DOSBox in Browser (ZIP + ISO Mount)</title>
-  <script src="https://js-dos.com/v8/current/js-dos-api.js"></script>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      height: 100%;
-      font-family: monospace;
-      display: flex;
-      flex-direction: column;
-    }
-    #controls {
-      background: #222;
-      padding: 10px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      z-index: 2;
-    }
-    #controls input, #controls button {
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>MS-DOS 6.22 Boot (PCjs)</title>
+
+ Boot (PCjs)</title>
   <script src="https://pcjs.org/distrib/pcjs.js"></script>
   <style>
     html, body {
