@@ -1,6 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <title>PCjs DOS Emulator with Keyboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #eee;
+      font-family: sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #iframe-container {
+      flex: 1;
+      position: relative;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    #keyboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+      gap: 6px;
+      padding: 10px;
+      background: #222;
+    }
+
+    #keyboard button {
+      padding: 12px 6px;
+      font-size: 16px;
+      border: none;
+      background: #444;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #keyboard button:active {
+      background: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="iframe-container">
+    <iframe id="pcjs-frame"
+      src="https://www.pcjs.org/devices/pcx86/msdos/6.22/"
+      allowfullscreen></iframe>
+  </div>
+
+  <div id="keyboard">
+    <!-- Basic DOS keys -->
+    <button data-key="A">A</button>
+    <button data-key="B">B</button>
+    <button data-key="C">C</button>
+    <button data-key="D">D</button>
+    <button data-key="E">E</button>
+    <button data-key="F">F</button>
+    <button data-key="G">G</button>
+    <button data-key="H">H</button>
+    <button data-key="I">I</button>
+    <button data-key="J">J</button>
+    <button data-key="K">K</button>
+    <button data-key="L">L</button>
+    <button data-key="M">M</button>
+    <button data-key="N">N</button>
+    <button data-key="O">O</button>
+    <button data-key="P">P</button>
+    <button data-key="Q">Q</button>
+    <button data-key="R">R</button>
+    <button data-key="S">S</button>
+    <button data-key="T">T</button>
+    <button data-key="U">U</button>
+    <button data-key="V">V</button>
+    <button data-key="W">W</button>
+    <button data-key="X">X</button>
+    <button data-key="Y">Y</button>
+    <button data-key="Z">Z</button>
+    <button data-key="Enter">⏎</button>
+    <button data-key="Backspace">⌫</button>
+    <button data-key=" ">Space</button>
+    <button data-key="/">/</button>
+    <button data-key=":">:</button>
+    <button data-key=".">.</button>
+    <button data-key="1">1</button>
+    <button data-key="2">2</button>
+    <button data-key="3">3</button>
+    <button data-key="4">4</button>
+    <button data-key="5">5</button>
+    <button data-key="6">6</button>
+    <button data-key="7">7</button>
+    <button data-key="8">8</button>
+    <button data-key="9">9</button>
+    <button data-key="0">0</button>
+  </div>
+
+  <script>
+    const iframe = document.getElementById('pcjs-frame');
+
+    function sendKeyToIframe(key) {
+      iframe.contentWindow.focus();
+      const eventInit = { key, code: key, bubbles: true };
+      const down = new KeyboardEvent('keydown', eventInit);
+      const up = new KeyboardEvent('keyup', eventInit);
+      iframe.contentWindow.dispatchEvent(down);
+      iframe.contentWindow.dispatchEvent(up);
+    }
+
+    document.querySelectorAll('#keyboard button').forEach(button => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.key;
+        sendKeyToIframe(key);
+      });
+    });
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
   <meta charset="UTF-8" />
   <title>DOSBox in Browser (ZIP + ISO Mount)</title>
   <script src="https://js-dos.com/v8/current/js-dos-api.js"></script>
@@ -32,45 +160,6 @@
   <script src="https://pcjs.org/distrib/pcjs.js"></script>
   <style>
     html, body {
-      margin: 0;
-      height: 100%;
-      background: black;
-    }
-    #pcjs-container {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
-</head>
-<body>
-  <div id="pcjs-container"></div>
-
-  <script>
-    window.PCJSMachines = {
-      "pc": {
-        "class": "PCx86",
-        "id": "pc",
-        "container": "pcjs-container",
-        "url": "msdos_blankhd.json",
-        "autostart": true
-      }
-    };
-  </script>
-</body>
-</html>
-
-r:", e),
-      });
-
-      emulator.events.on("ready", async () => {
-        const lower = file.name.toLowerCase();
-
-        if (lower.endsWith(".zip")) {
-          await emulator.fs.extract(file);
-          emulator.sendCommand("mount c .");
-          emulator.sendCommand("c:");
-          emulator.sendCommand("dir");
-          emulator.sendCommand("echo ZIP extracted to C:");
         } else if (lower.endsWith(".iso") || lower.endsWith(".img")) {
           await emulator.fs.createFile(file.name, file);
           emulator.sendCommand(`imgmount d ${file.name} -t iso`);
