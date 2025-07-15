@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DOSBox-X with ISO/ZIP Mount</title>
+  <title>DOSBox in Browser (ZIP + ISO Mount)</title>
   <script src="https://js-dos.com/v8/current/js-dos-api.js"></script>
   <style>
-    body, html {
+    html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
       background: black;
-      color: white;
+      height: 100%;
       font-family: monospace;
       display: flex;
       flex-direction: column;
@@ -19,26 +18,13 @@
       background: #222;
       padding: 10px;
       display: flex;
-      gap: 10px;
-      align-items: center;
       justify-content: center;
+      align-items: center;
+      gap: 10px;
+      z-index: 2;
     }
-    input[type="file"] {
-      background: #333;
-      color: white;
+    #controls input, #controls button {
       padding: 5px;
-      border: 1px solid #555;
-    }
-    button {
-      background: #28a745;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #218838;
     }
     #dos {
       flex-grow: 1;
@@ -47,8 +33,8 @@
 </head>
 <body>
   <div id="controls">
-    <input type="file" id="fileInput" accept=".iso,.img,.zip,.cue,.bin" />
-    <button id="startBtn">Start DOSBox-X</button>
+    <input type="file" id="fileInput" accept=".zip,.iso,.img" />
+    <button id="startBtn">Start DOSBox</button>
   </div>
   <div id="dos"></div>
 
@@ -59,39 +45,33 @@
 
     startBtn.addEventListener("click", async () => {
       const file = fileInput.files[0];
-      if (!file) {
-        alert("Please choose an ISO or ZIP file.");
-        return;
-      }
+      if (!file) return alert("Choose a ZIP or ISO file first.");
 
-      const emulator = await emulators.dosboxXWorker({
+      const emulator = await emulators.dosbox({
         id: "dos",
         autoResize: true,
-        onError: (err) => console.error("DOSBox-X error:", err),
+        onExit: () => console.log("Emulator exited"),
+        onError: (e) => console.error("Emulator error:", e),
       });
 
       emulator.events.on("ready", async () => {
-        const filename = file.name.toLowerCase();
+        const lower = file.name.toLowerCase();
 
-        if (filename.endsWith(".zip")) {
+        if (lower.endsWith(".zip")) {
           await emulator.fs.extract(file);
           emulator.sendCommand("mount c .");
           emulator.sendCommand("c:");
           emulator.sendCommand("dir");
           emulator.sendCommand("echo ZIP extracted to C:");
-        }
-        else if (filename.endsWith(".iso") || filename.endsWith(".img")) {
+        } else if (lower.endsWith(".iso") || lower.endsWith(".img")) {
           await emulator.fs.createFile(file.name, file);
           emulator.sendCommand(`imgmount d ${file.name} -t iso`);
           emulator.sendCommand("d:");
           emulator.sendCommand("dir");
-          emulator.sendCommand(`echo ISO mounted as D:`);
-        }
-        else {
+          emulator.sendCommand("echo ISO mounted to D:");
+        } else {
           emulator.sendCommand("echo Unsupported file type.");
         }
-
-        emulator.sendCommand("echo You are now in real DOS shell.");
       });
 
       emulator.start();
