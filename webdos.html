@@ -2,88 +2,96 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DOSBox-X in Browser with ISO Support</title>
+  <title>DOSBox-X with ISO/ZIP Mount</title>
   <script src="https://js-dos.com/v8/current/js-dos-api.js"></script>
   <style>
-    body {
+    body, html {
       margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      color: white;
       font-family: monospace;
-      background: #111;
-      color: #fff;
       display: flex;
       flex-direction: column;
-      height: 100vh;
     }
     #controls {
-      padding: 10px;
       background: #222;
+      padding: 10px;
       display: flex;
+      gap: 10px;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-    }
-    #dos {
-      flex-grow: 1;
     }
     input[type="file"] {
       background: #333;
       color: white;
-      padding: 6px;
+      padding: 5px;
       border: 1px solid #555;
     }
     button {
       background: #28a745;
+      color: white;
       border: none;
       padding: 6px 12px;
       font-weight: bold;
-      color: white;
       cursor: pointer;
     }
     button:hover {
       background: #218838;
     }
+    #dos {
+      flex-grow: 1;
+    }
   </style>
 </head>
 <body>
   <div id="controls">
-    <input type="file" id="isoInput" accept=".iso,.img,.bin,.cue" />
-    <input type="text" id="autorun" placeholder="Autorun command (e.g., install.exe)" />
+    <input type="file" id="fileInput" accept=".iso,.img,.zip,.cue,.bin" />
     <button id="startBtn">Start DOSBox-X</button>
   </div>
   <div id="dos"></div>
 
   <script>
     const { emulators } = Dos();
+    const fileInput = document.getElementById("fileInput");
     const startBtn = document.getElementById("startBtn");
-    const isoInput = document.getElementById("isoInput");
-    const autorunInput = document.getElementById("autorun");
 
     startBtn.addEventListener("click", async () => {
-      const isoFile = isoInput.files[0];
-      if (!isoFile) return alert("Please select an ISO or IMG file first.");
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please choose an ISO or ZIP file.");
+        return;
+      }
 
-      // Load DOSBox-X with worker backend
       const emulator = await emulators.dosboxXWorker({
         id: "dos",
         autoResize: true,
-        onError: (e) => console.error("DOSBox-X Error:", e)
+        onError: (err) => console.error("DOSBox-X error:", err),
       });
 
       emulator.events.on("ready", async () => {
-        // Mount the ISO in the virtual filesystem
-        await emulator.fs.createFile(isoFile.name, isoFile);
+        const filename = file.name.toLowerCase();
 
-        // Mount the ISO to drive D
-        emulator.sendCommand(`imgmount d ${isoFile.name} -t iso`);
-        emulator.sendCommand(`d:`);
-
-        // Auto-run command if specified
-        const autorun = autorunInput.value.trim();
-        if (autorun.length > 0) {
-          emulator.sendCommand(autorun);
-        } else {
+        if (filename.endsWith(".zip")) {
+          await emulator.fs.extract(file);
+          emulator.sendCommand("mount c .");
+          emulator.sendCommand("c:");
           emulator.sendCommand("dir");
+          emulator.sendCommand("echo ZIP extracted to C:");
         }
+        else if (filename.endsWith(".iso") || filename.endsWith(".img")) {
+          await emulator.fs.createFile(file.name, file);
+          emulator.sendCommand(`imgmount d ${file.name} -t iso`);
+          emulator.sendCommand("d:");
+          emulator.sendCommand("dir");
+          emulator.sendCommand(`echo ISO mounted as D:`);
+        }
+        else {
+          emulator.sendCommand("echo Unsupported file type.");
+        }
+
+        emulator.sendCommand("echo You are now in real DOS shell.");
       });
 
       emulator.start();
