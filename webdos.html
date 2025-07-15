@@ -24,34 +24,42 @@
       z-index: 2;
     }
     #controls input, #controls button {
-      padding: 5px;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MS-DOS 6.22 Boot (PCjs)</title>
+  <script src="https://pcjs.org/distrib/pcjs.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: black;
     }
-    #dos {
-      flex-grow: 1;
+    #pcjs-container {
+      width: 100%;
+      height: 100%;
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <input type="file" id="fileInput" accept=".zip,.iso,.img" />
-    <button id="startBtn">Start DOSBox</button>
-  </div>
-  <div id="dos"></div>
+  <div id="pcjs-container"></div>
 
   <script>
-    const { emulators } = Dos();
-    const fileInput = document.getElementById("fileInput");
-    const startBtn = document.getElementById("startBtn");
+    window.PCJSMachines = {
+      "pc": {
+        "class": "PCx86",
+        "id": "pc",
+        "container": "pcjs-container",
+        "url": "msdos_blankhd.json",
+        "autostart": true
+      }
+    };
+  </script>
+</body>
+</html>
 
-    startBtn.addEventListener("click", async () => {
-      const file = fileInput.files[0];
-      if (!file) return alert("Choose a ZIP or ISO file first.");
-
-      const emulator = await emulators.dosbox({
-        id: "dos",
-        autoResize: true,
-        onExit: () => console.log("Emulator exited"),
-        onError: (e) => console.error("Emulator error:", e),
+r:", e),
       });
 
       emulator.events.on("ready", async () => {
